@@ -15165,12 +15165,8 @@ def main():
         write_timeout          = 30.0,
         pool_timeout           = 20.0,
     )
-    app = (
-        Application.builder()
-        .token(BOT_TOKEN)
-        .request(request)
-        .build()
-    )
+    # ── Fixed for Python 3.13 + v20.8 compatibility ─────
+    app = Application.builder().token(BOT_TOKEN).request(request).build()
 
     # ── Init asyncio primitives (event loop must be running) ─
     global download_semaphore, scan_semaphore, _active_scans, db_lock, _dl_queue
