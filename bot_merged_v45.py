@@ -2,7 +2,7 @@
 # ╔══════════════════════════════════════════════════════════════╗
 # ║  Website Downloader Bot  v43.0  — POWERFUL IMPROVE         ║
 # ║  ✅ Thread Safety + Memory Monitor + Per-User Quotas        ║
-# ║ ──────────────── v42 Improvements ──────────────────────── ║
+# ║ ──────────────── v45 Fixed for v20.8 ────────────────────── ║
 # ║  🛡️ Ultimate Bypass Engine (403/WAF Bypass)                ║
 # ║  ⚡ High-Performance Async Core (Shared Session)            ║
 # ║  📊 Markdown Table Reports (Clean UI)                       ║
